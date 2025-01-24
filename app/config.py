@@ -6,7 +6,7 @@ class Settings:
     def __init__(self):
         self.config = self._load_config()
         self.VIDEO_DIRECTORIES = self._get_video_directories()
-        self.THUMBNAIL_DIR = self.config.get("thumbnail_dir", "thumbnails")
+        self.THUMBNAIL_CONFIG = self._get_thumbnail_config()
     
     def _load_config(self) -> dict:
         """설정 파일을 로드합니다."""
@@ -16,7 +16,10 @@ class Settings:
         if not config_path.exists():
             default_config = {
                 "video_directories": ["D:/Videos"],
-                "thumbnail_dir": "thumbnails"
+                "thumbnails": {
+                    "directory": "D:/thumbnails",
+                    "extension": ".jpg"
+                }
             }
             with open(config_path, "w", encoding="utf-8") as f:
                 yaml.dump(default_config, f, allow_unicode=True, default_flow_style=False)
@@ -39,5 +42,25 @@ class Settings:
             )
         
         return valid_dirs
+
+    def _get_thumbnail_config(self) -> dict:
+        """썸네일 설정을 반환합니다."""
+        thumb_config = self.config.get("thumbnails", {})
+        thumb_dir = thumb_config.get("directory", "D:/thumbnails")
+        
+        # 썸네일 디렉토리가 없으면 생성
+        os.makedirs(thumb_dir, exist_ok=True)
+        
+        return {
+            "directory": thumb_dir,
+            "extension": thumb_config.get("extension", ".jpg")
+        }
+    
+    def get_thumbnail_path(self, thumbnail_id: str) -> str:
+        """썸네일 ID로부터 전체 경로를 생성합니다."""
+        return os.path.join(
+            self.THUMBNAIL_CONFIG["directory"],
+            f"{thumbnail_id}{self.THUMBNAIL_CONFIG['extension']}"
+        )
 
 settings = Settings() 

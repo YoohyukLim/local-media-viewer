@@ -16,12 +16,12 @@ def scan_videos(db: Session):
                     # DB에 이미 존재하는지 확인
                     existing_video = db.query(Video).filter(Video.file_path == file_path).first()
                     if not existing_video:
-                        # 임시 썸네일 경로
-                        thumbnail_path = f"{settings.THUMBNAIL_DIR}/{os.path.splitext(file)[0]}.jpg"
+                        # 새로운 썸네일 ID 생성
+                        thumbnail_id = Video.generate_thumbnail_id()
                         
                         video = Video(
                             file_path=file_path,
-                            thumbnail_path=thumbnail_path
+                            thumbnail_id=thumbnail_id
                         )
                         db.add(video)
     
@@ -29,4 +29,8 @@ def scan_videos(db: Session):
     
 def get_videos(db: Session):
     """저장된 모든 비디오 목록을 반환합니다."""
-    return db.query(Video).all() 
+    videos = db.query(Video).all()
+    # 썸네일 전체 경로 추가
+    for video in videos:
+        video.thumbnail_path = settings.get_thumbnail_path(video.thumbnail_id)
+    return videos 
