@@ -9,6 +9,7 @@ from .metadata import (
 )
 from ..config import Settings
 from typing import List
+from .tags import cleanup_unused_tags
 
 # 전역 settings 객체 초기화
 settings = Settings()
@@ -103,6 +104,10 @@ def scan_videos(db: Session):
         
         remove_missing_videos(db, existing_files, settings.VIDEO_DIRECTORIES, settings)
         db.commit()
+        
+        # 사용되지 않는 태그 정리
+        cleanup_unused_tags(db)
+        
         print("Video scan completed successfully")
         
     except Exception as e:

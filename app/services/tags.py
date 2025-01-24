@@ -2,7 +2,11 @@ from sqlalchemy.orm import Session
 from ..models.tag import Tag
 from ..models.video import Video
 from typing import List, Tuple
+from ..config import Settings
 import os
+
+# 전역 settings 객체 초기화
+settings = Settings()
 
 def update_info_file_tags(file_path: str, tags_to_add: List[str] = None, tags_to_remove: List[str] = None):
     """비디오의 .info 파일의 태그를 수정합니다."""
@@ -140,4 +144,16 @@ def remove_video_tag(db: Session, video_id: int, tag_id: int) -> Tuple[Video, bo
     # info 파일 업데이트
     update_info_file_tags(video.file_path, tags_to_remove=[tag.name])
     
-    return video, True 
+    return video, True
+
+def cleanup_unused_tags(db: Session):
+    """사용되지 않는 태그들을 삭제합니다."""
+    # 비디오와 연결되지 않은 태그들을 찾아서 삭제
+    unused_tags = db.query(Tag).filter(~Tag.videos.any()).all()
+    
+    for tag in unused_tags:
+        db.delete(tag)
+    
+    if unused_tags:
+        print(f"Removed {len(unused_tags)} unused tags")
+        db.commit() 
