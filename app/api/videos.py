@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, conint
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from ..database import get_db
@@ -23,13 +23,29 @@ def scan_directory(db: Session = Depends(get_db)):
     scan_videos(db)
     return {"message": "Video scanning completed"}
 
-@router.get("/list", summary="비디오 목록 조회",
-    description="저장된 모든 비디오 파일 목록을 반환합니다.")
-def list_videos(db: Session = Depends(get_db)):
+@router.get("/list", 
+    summary="비디오 목록 조회",
+    description="저장된 비디오 파일 목록을 페이징하여 반환합니다.")
+def list_videos(
+    page: int = Query(1, ge=1, description="페이지 번호"),
+    page_size: int = Query(10, ge=1, le=100, description="페이지당 아이템 수"),
+    db: Session = Depends(get_db)
+):
     """
-    DB에 저장된 모든 비디오 파일 정보를 반환합니다.
+    DB에 저장된 비디오 파일 정보를 페이징하여 반환합니다.
+    - page: 페이지 번호 (1부터 시작)
+    - page_size: 페이지당 아이템 수 (1~100)
     """
-    return get_videos(db)
+    videos, total = get_videos(db, page=page, page_size=page_size)
+    total_pages = (total + page_size - 1) // page_size  # 전체 페이지 수 계산
+    
+    return {
+        "total_items": total,
+        "total_pages": total_pages,
+        "current_page": page,
+        "page_size": page_size,
+        "items": videos
+    }
 
 @router.get("/tags", summary="전체 태그 목록",
     description="사용 중인 모든 태그 목록을 반환합니다.")

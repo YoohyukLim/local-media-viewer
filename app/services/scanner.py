@@ -8,6 +8,7 @@ from .metadata import (
     update_video_metadata
 )
 from ..config import Settings
+from typing import List
 
 # 전역 settings 객체 초기화
 settings = Settings()
@@ -108,13 +109,20 @@ def scan_videos(db: Session):
         print(f"Error in scan_videos: {str(e)}")
         raise
 
-def get_videos(db: Session):
-    """저장된 모든 비디오 목록을 반환합니다."""
-    videos = db.query(Video).all()
-    result = []
+def get_videos(db: Session, page: int = 1, page_size: int = 10) -> tuple[List[dict], int]:
+    """저장된 비디오 목록을 반환합니다."""
+    # 전체 비디오 수 조회
+    total = db.query(Video).count()
     
+    # 페이징 및 정렬 적용하여 비디오 조회
+    videos = db.query(Video)\
+        .order_by(Video.file_name)\
+        .offset((page - 1) * page_size)\
+        .limit(page_size)\
+        .all()
+    
+    result = []
     for video in videos:
-        # 기본 비디오 정보를 딕셔너리로 변환
         video_dict = {
             "id": video.id,
             "file_path": video.file_path,
@@ -124,11 +132,9 @@ def get_videos(db: Session):
             "category": video.category,
             "created_at": video.created_at,
             "updated_at": video.updated_at,
-            # 썸네일 전체 경로 추가
             "thumbnail_path": settings.get_thumbnail_path(video.thumbnail_id),
-            # 태그 정보 추가
             "tags": [{"id": tag.id, "name": tag.name} for tag in video.tags]
         }
         result.append(video_dict)
     
-    return result 
+    return result, total 
