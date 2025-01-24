@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from .database import engine, Base, get_db
 from .api import videos
-from .services.video import scan_videos
+from .services.scanner import scan_videos
 
 app = FastAPI(title="Video Manager")
 
@@ -22,6 +22,8 @@ async def startup_event():
         print("Initial video scan completed")
     except Exception as e:
         print(f"Error during initial video scan: {str(e)}")
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
     finally:
         db.close()
 

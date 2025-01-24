@@ -1,8 +1,10 @@
 from sqlalchemy import Column, Integer, String, DateTime, Float, JSON
+from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
 import os
 from ..database import Base
+from .tag import video_tags
 
 class Video(Base):
     __tablename__ = "videos"
@@ -13,7 +15,7 @@ class Video(Base):
     thumbnail_id = Column(String, unique=True, index=True)  # UUID 기반 썸네일 ID
     duration = Column(Float)  # 영상 길이 (초 단위)
     category = Column(String, index=True)  # 카테고리
-    tags = Column(JSON)  # 태그 목록
+    tags = relationship("Tag", secondary=video_tags, back_populates="videos")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

@@ -1,6 +1,8 @@
 import os
 import cv2
 from datetime import datetime
+from sqlalchemy.orm import Session
+from .tags import update_video_tags
 
 def get_video_duration(video_path: str) -> float:
     """비디오 파일의 길이를 초 단위로 반환합니다."""
@@ -61,9 +63,22 @@ def read_video_metadata(file_path: str, base_dir: str) -> tuple[str | None, list
     
     return category, tags
 
-def update_video_metadata(video, file_path: str, base_dir: str):
+def update_video_metadata(video, file_path: str, base_dir: str, db: Session):
     """비디오의 메타데이터를 업데이트합니다."""
-    category, tags = read_video_metadata(file_path, base_dir)
-    if category is not None:
-        video.category = category
-    video.tags = tags 
+    try:
+        print(f"Reading metadata for: {file_path}")
+        category, tag_names = read_video_metadata(file_path, base_dir)
+        print(f"Found category: {category}")
+        print(f"Found tags: {tag_names}")
+        
+        if category is not None:
+            video.category = category
+        
+        try:
+            update_video_tags(db, video, tag_names)
+        except Exception as e:
+            print(f"Error updating tags: {str(e)}")
+            raise
+    except Exception as e:
+        print(f"Error in update_video_metadata: {str(e)}")
+        raise 
