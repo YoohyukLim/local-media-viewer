@@ -15,6 +15,7 @@ def create_thumbnail(video_path: str, thumbnail_path: str, settings: Settings) -
         # 경로를 운영체제에 맞게 정규화
         video_path = os.path.normpath(video_path)
         thumbnail_path = os.path.normpath(thumbnail_path)
+        working_path = f"{thumbnail_path}.working"
         
         # 썸네일 디렉토리 생성
         os.makedirs(os.path.dirname(thumbnail_path), exist_ok=True)
@@ -76,10 +77,10 @@ def create_thumbnail(video_path: str, thumbnail_path: str, settings: Settings) -
                     cap.read()
             
             if frames:
-                # WebP 애니메이션으로 저장
+                # WebP 애니메이션으로 임시 파일에 저장
                 duration_ms = int(1000 / fps)  # 프레임당 지속 시간 (밀리초)
                 frames[0].save(
-                    thumbnail_path,
+                    working_path,
                     format='WEBP',
                     append_images=frames[1:],
                     save_all=True,
@@ -88,15 +89,23 @@ def create_thumbnail(video_path: str, thumbnail_path: str, settings: Settings) -
                     quality=80,
                     method=6  # 최상의 압축
                 )
+                # 작업 완료 후 파일 이름 변경
+                os.replace(working_path, thumbnail_path)
                 return True
             
             return False
             
         finally:
             cap.release()
+            # 작업 실패 시 임시 파일 삭제
+            if os.path.exists(working_path):
+                os.remove(working_path)
             
     except Exception as e:
         print(f"Error creating thumbnail for {video_path}: {str(e)}")
+        # 에러 발생 시 임시 파일 삭제
+        if os.path.exists(working_path):
+            os.remove(working_path)
         return False
 
 def ensure_thumbnail(video, file_path: str, settings) -> bool:
