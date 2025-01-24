@@ -62,10 +62,24 @@ def search_videos(
 ):
     """태그로 비디오를 검색합니다."""
     videos = search_videos_by_tags(db, tags, require_all)
-    # 썸네일 경로 추가
+    result = []
+    
     for video in videos:
-        video.thumbnail_path = settings.get_thumbnail_path(video.thumbnail_id)
-    return videos 
+        video_dict = {
+            "id": video.id,
+            "file_path": video.file_path,
+            "file_name": video.file_name,
+            "thumbnail_id": video.thumbnail_id,
+            "duration": video.duration,
+            "category": video.category,
+            "created_at": video.created_at,
+            "updated_at": video.updated_at,
+            "thumbnail_path": settings.get_thumbnail_path(video.thumbnail_id),
+            "tags": [{"id": tag.id, "name": tag.name} for tag in video.tags]
+        }
+        result.append(video_dict)
+    
+    return result
 
 @router.post("/{video_id}/tags", 
     summary="비디오에 태그 추가",
