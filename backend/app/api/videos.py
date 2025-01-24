@@ -9,6 +9,9 @@ from ..config import settings
 from ..models.video import Video
 from fastapi.responses import FileResponse
 import os
+import subprocess
+import platform
+from ..logger import logger
 
 router = APIRouter()
 
@@ -141,4 +144,43 @@ async def get_thumbnail(thumbnail_id: str):
         raise HTTPException(
             status_code=500,
             detail=f"Error retrieving thumbnail: {str(e)}"
+        )
+
+@router.post("/play/{video_id}", 
+    summary="비디오 재생",
+    description="로컬 시스템에서 비디오 파일을 재생합니다.")
+async def play_video(video_id: int, db: Session = Depends(get_db)):
+    """비디오 파일을 시스템 기본 플레이어로 재생합니다."""
+    # 비디오 정보 조회
+    video = db.query(Video).filter(Video.id == video_id).first()
+    if not video:
+        logger.error(f"Video not found: {video_id}")
+        raise HTTPException(status_code=404, detail="Video not found")
+    
+    # 파일 존재 여부 확인
+    if not os.path.exists(video.file_path):
+        logger.error(f"Video file not found: {video.file_path}")
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Video file not found: {video.file_path}"
+        )
+    
+    try:
+        logger.info(f"Playing video: {video.file_path}")
+        system = platform.system()
+        
+        if system == "Windows":
+            subprocess.Popen(['cmd', '/c', 'start', '', video.file_path], shell=True)
+        elif system == "Darwin":  # macOS
+            subprocess.Popen(['open', video.file_path])
+        else:  # Linux
+            subprocess.Popen(['xdg-open', video.file_path])
+            
+        return {"message": "Video playback started", "file_path": video.file_path}
+        
+    except Exception as e:
+        logger.error(f"Failed to play video: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to play video: {str(e)}"
         ) 

@@ -21,6 +21,11 @@ const VideoCard = styled.div`
     aspect-ratio: 16/9;
     object-fit: cover;
     background: #f8f9fa;
+    cursor: pointer;
+    
+    &:hover {
+      opacity: 0.8;
+    }
   }
   
   .info {
@@ -89,6 +94,21 @@ export const VideoGrid: React.FC<Props> = ({ videos }) => {
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
+  const handleVideoClick = async (videoId: number) => {
+    try {
+      const response = await fetch(`/api/videos/play/${videoId}`, {
+        method: 'POST'
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to play video');
+      }
+    } catch (error) {
+      console.error('Error playing video:', error);
+    }
+  };
+
   return (
     <Grid>
       {videos.map(video => (
@@ -103,6 +123,8 @@ export const VideoGrid: React.FC<Props> = ({ videos }) => {
               alt={video.file_name}
               onLoad={() => handleImageLoad(video.id)}
               onError={() => handleImageError(video.id)}
+              onClick={() => handleVideoClick(video.id)}
+              title="Click to play video"
             />
           )}
           <div className="info">
