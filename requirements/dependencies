@@ -1,5 +1,33 @@
 # 의존성 요구사항
 
+## Backend
+- FastAPI + Uvicorn: API 서버
+- SQLAlchemy: ORM
+- OpenCV: 비디오 처리
+- Pillow: 썸네일 생성
+- PyYAML: 설정 파일
+
+## Frontend
+- React 18
+- TypeScript 4.9
+- styled-components 6.1
+- react-scripts 5.0
+
+## 개발 환경
+- Node.js 16+
+- Python 3.11+
+- npm 또는 yarn
+
+## 프록시 설정
+```json
+{
+  "proxy": {
+    "/api": "http://localhost:8000",
+    "/thumbnails": "http://localhost:8000"
+  }
+}
+```
+
 ## 필수 패키지
 - opencv-python>=4.8.1: 비디오 처리
 - Pillow>=10.1.0: 이미지 처리 및 WebP 생성
