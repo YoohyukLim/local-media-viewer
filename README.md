@@ -22,6 +22,19 @@ app/
 
 ## 개발 환경 설정
 
+### 0. 설정 파일
+
+프로젝트 루트 디렉토리에 `config.yaml` 파일을 생성하고 다음과 같이 설정합니다:
+
+```yaml
+# 비디오 파일이 있는 디렉토리 목록
+video_directories:
+  - "D:/Videos"  # 실제 비디오가 있는 경로로 수정해주세요
+
+# 썸네일 저장 경로
+thumbnail_dir: "thumbnails"
+```
+
 ### 1. Python 가상환경 설정
 
 ```bash
