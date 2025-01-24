@@ -89,6 +89,38 @@ def is_video_modified(file_path: str, video: Video) -> bool:
         print(f"Error checking modification time for {file_path}: {str(e)}")
         return False
 
+def read_video_metadata(file_path: str) -> tuple[str | None, list[str]]:
+    """비디오의 메타데이터 파일을 읽어 카테고리와 태그 목록을 반환합니다."""
+    # .txt 대신 .info 확장자 사용
+    metadata_path = f"{os.path.splitext(file_path)[0]}.info"
+    category = None
+    tags = []
+    
+    try:
+        if os.path.exists(metadata_path):
+            with open(metadata_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith('!'):
+                        # 카테고리는 마지막에 나온 것을 사용
+                        category = line[1:].strip()
+                    elif line.startswith('#'):
+                        # 태그 추가
+                        tag = line[1:].strip()
+                        if tag and tag not in tags:
+                            tags.append(tag)
+    except Exception as e:
+        print(f"Error reading metadata for {file_path}: {str(e)}")
+    
+    return category, tags
+
+def update_video_metadata(video: Video, file_path: str):
+    """비디오의 메타데이터를 업데이트합니다."""
+    category, tags = read_video_metadata(file_path)
+    if category is not None:
+        video.category = category
+    video.tags = tags
+
 def scan_videos(db: Session):
     """설정된 디렉토리들의 비디오 파일들을 스캔하여 DB에 저장합니다."""
     video_extensions = ('.mp4', '.avi', '.mkv', '.mov')
@@ -109,16 +141,19 @@ def scan_videos(db: Session):
                             if not ensure_thumbnail(existing_video, file_path):
                                 print(f"Failed to create thumbnail for existing video: {file_path}")
                             
-                            # 영상 길이 업데이트
+                            # 영상 길이와 메타데이터 업데이트
                             duration = get_video_duration(file_path)
                             if duration > 0:
                                 existing_video.duration = duration
-                                existing_video.file_name = Video.get_file_name(file_path)  # 파일 이름 업데이트
+                                existing_video.file_name = Video.get_file_name(file_path)
+                                update_video_metadata(existing_video, file_path)
                                 db.add(existing_video)
                         else:
-                            # 썸네일만 확인
+                            # 썸네일과 메타데이터만 확인
                             if not ensure_thumbnail(existing_video, file_path):
                                 print(f"Failed to create thumbnail for existing video: {file_path}")
+                            update_video_metadata(existing_video, file_path)
+                            db.add(existing_video)
                     else:
                         # 새 비디오 추가
                         thumbnail_id = Video.generate_thumbnail_id()
@@ -129,10 +164,12 @@ def scan_videos(db: Session):
                             duration = get_video_duration(file_path)
                             video = Video(
                                 file_path=file_path,
-                                file_name=Video.get_file_name(file_path),  # 파일 이름 저장
+                                file_name=Video.get_file_name(file_path),
                                 thumbnail_id=thumbnail_id,
-                                duration=duration
+                                duration=duration,
+                                tags=[]  # 기본값 설정
                             )
+                            update_video_metadata(video, file_path)
                             db.add(video)
                         else:
                             print(f"Skipping {file_path} due to thumbnail creation failure")

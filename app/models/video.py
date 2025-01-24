@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Float
+from sqlalchemy import Column, Integer, String, DateTime, Float, JSON
 from datetime import datetime
 import uuid
 import os
@@ -12,6 +12,8 @@ class Video(Base):
     file_name = Column(String, index=True)  # 파일 이름 필드 추가
     thumbnail_id = Column(String, unique=True, index=True)  # UUID 기반 썸네일 ID
     duration = Column(Float)  # 영상 길이 (초 단위)
+    category = Column(String, index=True)  # 카테고리
+    tags = Column(JSON)  # 태그 목록
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
