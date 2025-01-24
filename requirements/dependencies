@@ -1,0 +1,8 @@
+필수 패키지:
+- fastapi>=0.104.1      # API 서버
+- uvicorn>=0.24.0       # ASGI 서버
+- sqlalchemy>=2.0.23    # DB ORM
+- python-multipart>=0.0.6
+- aiosqlite>=0.19.0     # SQLite 비동기 지원
+- pyyaml>=6.0.1         # YAML 설정 파일
+- opencv-python>=4.8.1  # 비디오 처리 및 썸네일 생성 

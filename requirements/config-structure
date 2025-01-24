@@ -1,0 +1,7 @@
+# config.yaml 구조
+video_directories:       # 스캔할 비디오 디렉토리 목록
+  - "D:/videos"
+
+thumbnails:             # 썸네일 설정
+  directory: "D:/videos/thumbnails"  # 썸네일 저장 경로
+  extension: ".jpg"     # 썸네일 파일 확장자 
