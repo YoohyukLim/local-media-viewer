@@ -88,7 +88,7 @@ def scan_videos(db: Session):
                                 thumbnail_id = Video.generate_thumbnail_id()
                                 thumbnail_path = settings.get_thumbnail_path(thumbnail_id)
                                 
-                                if create_thumbnail(file_path, thumbnail_path):
+                                if create_thumbnail(file_path, thumbnail_path, settings):
                                     duration = get_video_duration(file_path)
                                     video = Video(
                                         file_path=file_path,

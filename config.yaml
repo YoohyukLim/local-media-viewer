@@ -5,4 +5,8 @@ video_directories:
 # 썸네일 설정
 thumbnails:
   directory: "D:/videos/thumbnails"  # 썸네일이 저장될 절대 경로
-  extension: ".jpg"  # 썸네일 파일 확장자 
+  extension: ".webp"  # 썸네일 파일 확장자
+  duration: 3.0      # 썸네일 영상 길이 (초)
+  fps: 5.0         # 초당 프레임 수
+  max_size: 480     # 최대 크기 (px)
+ 
