@@ -6,7 +6,13 @@ from app.config import Settings
 
 def create_thumbnail(video_path: str, thumbnail_path: str, settings: Settings) -> bool:
     """비디오 파일의 중간 부분에서 프레임을 추출하여 WebP 애니메이션으로 저장합니다."""
+    working_path = f"{thumbnail_path}.tmp"  # 임시 파일 경로
+    
     try:
+        # 기존 임시 파일 제거
+        if os.path.exists(working_path):
+            os.remove(working_path)
+            
         # 설정에서 값 가져오기
         duration_sec = settings.THUMBNAIL_DURATION
         fps = settings.THUMBNAIL_FPS
@@ -15,7 +21,6 @@ def create_thumbnail(video_path: str, thumbnail_path: str, settings: Settings) -
         # 경로를 운영체제에 맞게 정규화
         video_path = os.path.normpath(video_path)
         thumbnail_path = os.path.normpath(thumbnail_path)
-        working_path = f"{thumbnail_path}.working"
         
         # 썸네일 디렉토리 생성
         os.makedirs(os.path.dirname(thumbnail_path), exist_ok=True)
@@ -97,15 +102,14 @@ def create_thumbnail(video_path: str, thumbnail_path: str, settings: Settings) -
             
         finally:
             cap.release()
-            # 작업 실패 시 임시 파일 삭제
+        
+    except Exception as e:
+        # 에러 발생 시 임시 파일 정리
+        try:
             if os.path.exists(working_path):
                 os.remove(working_path)
-            
-    except Exception as e:
-        print(f"Error creating thumbnail for {video_path}: {str(e)}")
-        # 에러 발생 시 임시 파일 삭제
-        if os.path.exists(working_path):
-            os.remove(working_path)
+        except Exception:
+            pass
         return False
 
 def ensure_thumbnail(video, file_path: str, settings) -> bool:

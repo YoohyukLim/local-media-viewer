@@ -10,42 +10,66 @@ class CustomFormatter(logging.Formatter):
         record.timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         return super().format(record)
 
-# 로그 메시지를 저장할 큐
-log_queue = queue.Queue()
+class LogManager:
+    _instance = None
+    _lock = threading.Lock()
+    
+    def __init__(self):
+        self.queue = queue.Queue()
+        self.listener = None
+        self.logger = None
+        self.setup_logger()
+    
+    def setup_logger(self):
+        """애플리케이션 로거를 설정합니다."""
+        if self.logger is not None:
+            return
+            
+        self.logger = logging.getLogger('video_manager')
+        self.logger.setLevel(logging.INFO)
+        
+        # 큐 핸들러 설정
+        queue_handler = logging.handlers.QueueHandler(self.queue)
+        self.logger.addHandler(queue_handler)
+        
+        # 콘솔 출력을 처리할 리스너 설정
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        formatter = CustomFormatter('[%(timestamp)s] %(message)s')
+        console_handler.setFormatter(formatter)
+        
+        # 리스너 스레드 시작
+        self.listener = logging.handlers.QueueListener(self.queue, console_handler)
+        self.listener.start()
+    
+    def stop(self):
+        """로거를 안전하게 종료합니다."""
+        if self.listener is not None:
+            try:
+                self.listener.stop()
+                self.listener = None
+            except Exception as e:
+                print(f"Error stopping log listener: {e}")
+    
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = LogManager()
+        return cls._instance
 
-def setup_logger():
-    """애플리케이션 로거를 설정합니다."""
-    logger = logging.getLogger('video_manager')
-    logger.setLevel(logging.INFO)
-    
-    # 큐 핸들러 설정
-    queue_handler = logging.handlers.QueueHandler(log_queue)
-    logger.addHandler(queue_handler)
-    
-    # 콘솔 출력을 처리할 리스너 설정
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    formatter = CustomFormatter('[%(timestamp)s] %(message)s')
-    console_handler.setFormatter(formatter)
-    
-    # 리스너 스레드 시작
-    listener = logging.handlers.QueueListener(log_queue, console_handler)
-    listener.start()
-    
-    return logger, listener
-
-# 전역 로거 인스턴스와 리스너
-logger, log_listener = setup_logger()
+# 전역 로그 매니저 인스턴스
+log_manager = LogManager.get_instance()
+logger = log_manager.logger
 
 def get_worker_logger():
     """워커 프로세스용 로거를 반환합니다."""
     worker_logger = logging.getLogger('video_manager.worker')
     if not worker_logger.handlers:
-        # 로그 디렉토리 생성
         log_dir = "logs"
         os.makedirs(log_dir, exist_ok=True)
         
-        # 파일 핸들러 설정
         file_handler = logging.FileHandler(
             os.path.join(log_dir, "thumbnail_worker.log"),
             encoding='utf-8'
@@ -54,10 +78,9 @@ def get_worker_logger():
         formatter = CustomFormatter('[%(timestamp)s] %(message)s')
         file_handler.setFormatter(formatter)
         worker_logger.addHandler(file_handler)
-        
-        # 큐 핸들러도 추가하여 콘솔에도 출력
-        queue_handler = logging.handlers.QueueHandler(log_queue)
-        worker_logger.addHandler(queue_handler)
-        
         worker_logger.setLevel(logging.INFO)
-    return worker_logger 
+    return worker_logger
+
+def shutdown_logger():
+    """로거를 종료합니다."""
+    log_manager.stop() 

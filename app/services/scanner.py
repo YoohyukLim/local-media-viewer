@@ -11,6 +11,7 @@ from ..config import Settings
 from typing import List
 from .tags import cleanup_unused_tags
 from ..logger import logger
+from .thumbnail_worker import get_thumbnail_worker
 
 # 전역 settings 객체 초기화
 settings = Settings()
@@ -53,6 +54,9 @@ def scan_videos(db: Session):
         logger.info("Starting video scan...")
         reload_settings()
         
+        # 썸네일 워커 시작
+        thumbnail_worker = get_thumbnail_worker(settings)
+        
         video_extensions = ('.mp4', '.avi', '.mkv', '.mov')
         existing_files = set()
         
@@ -68,53 +72,47 @@ def scan_videos(db: Session):
                             if existing_video:
                                 if is_video_modified(file_path, existing_video):
                                     logger.info(f"Updating modified video: {file_path}")
-                                    if not ensure_thumbnail(existing_video, file_path, settings):
-                                        logger.error(f"Failed to create thumbnail for existing video: {file_path}")
-                                    
                                     duration = get_video_duration(file_path)
                                     if duration > 0:
                                         existing_video.duration = duration
                                         existing_video.file_name = Video.get_file_name(file_path)
-                                        db.add(existing_video)  # 세션에 추가
-                                        db.flush()  # ID 생성을 위해 flush
-                                        update_video_metadata(existing_video, file_path, base_dir, db)
-                                else:
-                                    if not ensure_thumbnail(existing_video, file_path, settings):
-                                        logger.error(f"Failed to create thumbnail for existing video: {file_path}")
-                                    db.add(existing_video)  # 세션에 추가
-                                    db.flush()  # ID 생성을 위해 flush
-                                    update_video_metadata(existing_video, file_path, base_dir, db)
+                                db.add(existing_video)
+                                db.flush()
+                                update_video_metadata(existing_video, file_path, base_dir, db)
+
+                                # 썸네일 업데이트 요청을 큐에 추가
+                                thumbnail_worker.add_task(existing_video.thumbnail_id, file_path)
                             else:
                                 logger.info(f"Adding new video: {file_path}")
+                                # 새 비디오 추가
                                 thumbnail_id = Video.generate_thumbnail_id()
-                                thumbnail_path = settings.get_thumbnail_path(thumbnail_id)
+                                duration = get_video_duration(file_path)
+                                video = Video(
+                                    file_path=file_path,
+                                    file_name=Video.get_file_name(file_path),
+                                    thumbnail_id=thumbnail_id,
+                                    duration=duration
+                                )
+                                db.add(video)
+                                db.flush()
+                                update_video_metadata(video, file_path, base_dir, db)
                                 
-                                if create_thumbnail(file_path, thumbnail_path, settings):
-                                    duration = get_video_duration(file_path)
-                                    video = Video(
-                                        file_path=file_path,
-                                        file_name=Video.get_file_name(file_path),
-                                        thumbnail_id=thumbnail_id,
-                                        duration=duration
-                                    )
-                                    db.add(video)  # 세션에 추가
-                                    db.flush()  # ID 생성을 위해 flush
-                                    update_video_metadata(video, file_path, base_dir, db)
-                                else:
-                                    logger.error(f"Skipping {file_path} due to thumbnail creation failure")
+                                # 썸네일 생성 요청을 큐에 추가
+                                thumbnail_worker.add_task(thumbnail_id, file_path)
+                                
                         except Exception as e:
                             logger.error(f"Error processing file {file_path}: {str(e)}")
-                            db.rollback()  # 에러 발생 시 롤백
+                            db.rollback()
                             raise
         
         remove_missing_videos(db, existing_files, settings.VIDEO_DIRECTORIES, settings)
         cleanup_unused_tags(db)
-        db.commit()  # 모든 작업이 성공적으로 완료되면 커밋
+        db.commit()
         logger.info("Video scan completed successfully")
         
     except Exception as e:
         logger.error(f"Error in scan_videos: {str(e)}")
-        db.rollback()  # 에러 발생 시 롤백
+        db.rollback()
         raise
 
 def get_videos(db: Session, page: int = 1, page_size: int = 10) -> tuple[List[dict], int]:
