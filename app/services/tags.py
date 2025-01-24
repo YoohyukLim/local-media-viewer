@@ -1,8 +1,9 @@
 from sqlalchemy.orm import Session
-from ..models.tag import Tag
-from ..models.video import Video
+from app.models.tag import Tag
+from app.models.video import Video
 from typing import List, Tuple
 from ..config import Settings
+from ..logger import logger
 import os
 
 # 전역 settings 객체 초기화
@@ -158,12 +159,11 @@ def remove_video_tag(db: Session, video_id: int, tag_id: int) -> Tuple[Video, bo
 
 def cleanup_unused_tags(db: Session):
     """사용되지 않는 태그들을 삭제합니다."""
-    # 비디오와 연결되지 않은 태그들을 찾아서 삭제
     unused_tags = db.query(Tag).filter(~Tag.videos.any()).all()
     
     for tag in unused_tags:
         db.delete(tag)
     
     if unused_tags:
-        print(f"Removed {len(unused_tags)} unused tags")
+        logger.info(f"Removed {len(unused_tags)} unused tags")
         db.commit() 

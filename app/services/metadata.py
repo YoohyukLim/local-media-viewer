@@ -4,13 +4,14 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from .tags import update_video_tags
 from typing import List
+from ..logger import logger
 
 def get_video_duration(video_path: str) -> float:
     """비디오 파일의 길이를 초 단위로 반환합니다."""
     try:
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
-            print(f"Error: Could not open video file - {video_path}")
+            logger.error(f"Error: Could not open video file - {video_path}")
             return 0.0
 
         fps = cap.get(cv2.CAP_PROP_FPS)
@@ -20,7 +21,7 @@ def get_video_duration(video_path: str) -> float:
         cap.release()
         return duration
     except Exception as e:
-        print(f"Error getting duration for {video_path}: {str(e)}")
+        logger.error(f"Error getting duration for {video_path}: {str(e)}")
         return 0.0
 
 def is_video_modified(file_path: str, video) -> bool:
@@ -29,7 +30,7 @@ def is_video_modified(file_path: str, video) -> bool:
         file_mtime = datetime.fromtimestamp(os.path.getmtime(file_path))
         return file_mtime > video.updated_at
     except Exception as e:
-        print(f"Error checking modification time for {file_path}: {str(e)}")
+        logger.error(f"Error checking modification time for {file_path}: {str(e)}")
         return False
 
 def get_directory_tags(file_path: str, base_dir: str) -> list[str]:
@@ -60,7 +61,7 @@ def read_video_metadata(file_path: str, base_dir: str) -> tuple[str | None, list
                         if tag and tag not in tags:
                             tags.append(tag)
     except Exception as e:
-        print(f"Error reading metadata for {file_path}: {str(e)}")
+        logger.error(f"Error reading metadata for {file_path}: {str(e)}")
     
     return category, tags
 

@@ -10,6 +10,7 @@ from .metadata import (
 from ..config import Settings
 from typing import List
 from .tags import cleanup_unused_tags
+from ..logger import logger
 
 # 전역 settings 객체 초기화
 settings = Settings()
@@ -35,13 +36,13 @@ def remove_missing_videos(db: Session, existing_files: set[str], video_directori
     for video in all_videos:
         if (video.file_path not in existing_files or 
             not is_file_in_video_directories(video.file_path, video_directories)):
-            print(f"Removing video from DB: {video.file_path}")
+            logger.info(f"Removing video from DB: {video.file_path}")
             try:
                 thumbnail_path = settings.get_thumbnail_path(video.thumbnail_id)
                 if os.path.exists(thumbnail_path):
                     os.remove(thumbnail_path)
             except Exception as e:
-                print(f"Error removing thumbnail file: {str(e)}")
+                logger.error(f"Error removing thumbnail file: {str(e)}")
             db.delete(video)
     
     db.commit()
@@ -49,7 +50,7 @@ def remove_missing_videos(db: Session, existing_files: set[str], video_directori
 def scan_videos(db: Session):
     """설정된 디렉토리들의 비디오 파일들을 스캔하여 DB에 저장합니다."""
     try:
-        print("Starting video scan...")
+        logger.info("Starting video scan...")
         reload_settings()
         
         video_extensions = ('.mp4', '.avi', '.mkv', '.mov')
@@ -66,9 +67,9 @@ def scan_videos(db: Session):
                             existing_video = db.query(Video).filter(Video.file_path == file_path).first()
                             if existing_video:
                                 if is_video_modified(file_path, existing_video):
-                                    print(f"Updating modified video: {file_path}")
+                                    logger.info(f"Updating modified video: {file_path}")
                                     if not ensure_thumbnail(existing_video, file_path, settings):
-                                        print(f"Failed to create thumbnail for existing video: {file_path}")
+                                        logger.error(f"Failed to create thumbnail for existing video: {file_path}")
                                     
                                     duration = get_video_duration(file_path)
                                     if duration > 0:
@@ -79,12 +80,12 @@ def scan_videos(db: Session):
                                         update_video_metadata(existing_video, file_path, base_dir, db)
                                 else:
                                     if not ensure_thumbnail(existing_video, file_path, settings):
-                                        print(f"Failed to create thumbnail for existing video: {file_path}")
+                                        logger.error(f"Failed to create thumbnail for existing video: {file_path}")
                                     db.add(existing_video)  # 세션에 추가
                                     db.flush()  # ID 생성을 위해 flush
                                     update_video_metadata(existing_video, file_path, base_dir, db)
                             else:
-                                print(f"Adding new video: {file_path}")
+                                logger.info(f"Adding new video: {file_path}")
                                 thumbnail_id = Video.generate_thumbnail_id()
                                 thumbnail_path = settings.get_thumbnail_path(thumbnail_id)
                                 
@@ -100,19 +101,19 @@ def scan_videos(db: Session):
                                     db.flush()  # ID 생성을 위해 flush
                                     update_video_metadata(video, file_path, base_dir, db)
                                 else:
-                                    print(f"Skipping {file_path} due to thumbnail creation failure")
+                                    logger.error(f"Skipping {file_path} due to thumbnail creation failure")
                         except Exception as e:
-                            print(f"Error processing file {file_path}: {str(e)}")
+                            logger.error(f"Error processing file {file_path}: {str(e)}")
                             db.rollback()  # 에러 발생 시 롤백
                             raise
         
         remove_missing_videos(db, existing_files, settings.VIDEO_DIRECTORIES, settings)
         cleanup_unused_tags(db)
         db.commit()  # 모든 작업이 성공적으로 완료되면 커밋
-        print("Video scan completed successfully")
+        logger.info("Video scan completed successfully")
         
     except Exception as e:
-        print(f"Error in scan_videos: {str(e)}")
+        logger.error(f"Error in scan_videos: {str(e)}")
         db.rollback()  # 에러 발생 시 롤백
         raise
 
