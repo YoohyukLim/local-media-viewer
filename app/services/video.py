@@ -113,6 +113,7 @@ def scan_videos(db: Session):
                             duration = get_video_duration(file_path)
                             if duration > 0:
                                 existing_video.duration = duration
+                                existing_video.file_name = Video.get_file_name(file_path)  # 파일 이름 업데이트
                                 db.add(existing_video)
                         else:
                             # 썸네일만 확인
@@ -128,6 +129,7 @@ def scan_videos(db: Session):
                             duration = get_video_duration(file_path)
                             video = Video(
                                 file_path=file_path,
+                                file_name=Video.get_file_name(file_path),  # 파일 이름 저장
                                 thumbnail_id=thumbnail_id,
                                 duration=duration
                             )

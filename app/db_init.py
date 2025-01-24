@@ -1,4 +1,4 @@
-from database import Base, engine
+from app.database import Base, engine
 
 def init_db():
     """데이터베이스를 초기화합니다."""
