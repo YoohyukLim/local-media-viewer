@@ -60,6 +60,25 @@ def ensure_thumbnail(video: Video, file_path: str) -> bool:
     
     return True
 
+def get_video_duration(video_path: str) -> float:
+    """비디오 파일의 길이를 초 단위로 반환합니다."""
+    try:
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            print(f"Error: Could not open video file - {video_path}")
+            return 0.0
+
+        # 프레임 수와 FPS로 영상 길이 계산
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        duration = frame_count / fps if fps > 0 else 0.0
+
+        cap.release()
+        return duration
+    except Exception as e:
+        print(f"Error getting duration for {video_path}: {str(e)}")
+        return 0.0
+
 def scan_videos(db: Session):
     """설정된 디렉토리들의 비디오 파일들을 스캔하여 DB에 저장합니다."""
     video_extensions = ('.mp4', '.avi', '.mkv', '.mov')
@@ -76,16 +95,24 @@ def scan_videos(db: Session):
                         # 기존 비디오의 썸네일 확인 및 생성
                         if not ensure_thumbnail(existing_video, file_path):
                             print(f"Failed to create thumbnail for existing video: {file_path}")
+                        
+                        # 영상 길이 업데이트
+                        duration = get_video_duration(file_path)
+                        if duration > 0 and duration != existing_video.duration:
+                            existing_video.duration = duration
+                            db.add(existing_video)
                     else:
                         # 새 비디오 추가
                         thumbnail_id = Video.generate_thumbnail_id()
                         thumbnail_path = settings.get_thumbnail_path(thumbnail_id)
                         
-                        # 썸네일 생성
+                        # 썸네일 생성 및 영상 길이 가져오기
                         if create_thumbnail(file_path, thumbnail_path):
+                            duration = get_video_duration(file_path)
                             video = Video(
                                 file_path=file_path,
-                                thumbnail_id=thumbnail_id
+                                thumbnail_id=thumbnail_id,
+                                duration=duration
                             )
                             db.add(video)
                         else:
