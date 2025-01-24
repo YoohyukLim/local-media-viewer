@@ -7,6 +7,8 @@ from ..services.scanner import scan_videos, get_videos
 from ..services.tags import search_videos_by_tags, get_all_tags, add_video_tag, remove_video_tag
 from ..config import settings
 from ..models.video import Video
+from fastapi.responses import FileResponse
+import os
 
 router = APIRouter()
 
@@ -27,24 +29,24 @@ def scan_directory(db: Session = Depends(get_db)):
     summary="비디오 목록 조회",
     description="저장된 비디오 파일 목록을 페이징하여 반환합니다.")
 def list_videos(
-    page: int = Query(1, ge=1, description="페이지 번호"),
-    page_size: int = Query(10, ge=1, le=100, description="페이지당 아이템 수"),
+    page: int = Query(1, ge=1),
+    size: int = Query(25, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
     """
     DB에 저장된 비디오 파일 정보를 페이징하여 반환합니다.
     - page: 페이지 번호 (1부터 시작)
-    - page_size: 페이지당 아이템 수 (1~100)
+    - size: 페이지당 아이템 수 (1~100)
     """
-    videos, total = get_videos(db, page=page, page_size=page_size)
-    total_pages = (total + page_size - 1) // page_size  # 전체 페이지 수 계산
+    videos, total = get_videos(db, page=page, page_size=size)
+    total_pages = (total + size - 1) // size  # 전체 페이지 수 계산
     
     return {
-        "total_items": total,
-        "total_pages": total_pages,
-        "current_page": page,
-        "page_size": page_size,
-        "items": videos
+        "items": videos,
+        "total": total,
+        "page": page,
+        "size": size,
+        "pages": total_pages
     }
 
 @router.get("/tags", summary="전체 태그 목록",
@@ -112,4 +114,31 @@ def remove_tag(
         "video_id": video_id,
         "tag_id": tag_id,
         "removed": removed
-    } 
+    }
+
+@router.get("/thumbnails/{thumbnail_id}", 
+    summary="썸네일 이미지 조회",
+    description="지정된 ID의 썸네일 이미지를 반환합니다.",
+    response_class=FileResponse)
+async def get_thumbnail(thumbnail_id: str):
+    """썸네일 이미지를 반환합니다."""
+    try:
+        thumbnail_path = settings.get_thumbnail_path(thumbnail_id)
+        
+        if not os.path.exists(thumbnail_path):
+            raise HTTPException(
+                status_code=404, 
+                detail="Thumbnail not found"
+            )
+            
+        return FileResponse(
+            path=thumbnail_path,
+            media_type="image/webp",
+            filename=f"{thumbnail_id}.webp"
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrieving thumbnail: {str(e)}"
+        ) 

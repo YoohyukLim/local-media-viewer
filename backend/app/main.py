@@ -1,6 +1,7 @@
 import signal
 import sys
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from .database import engine, Base, get_db
 from .api import videos
@@ -68,6 +69,15 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# CORS 미들웨어 설정 추가
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # React 개발 서버
+    allow_credentials=True,
+    allow_methods=["*"],  # 모든 HTTP 메서드 허용
+    allow_headers=["*"],  # 모든 헤더 허용
+)
+
 # DB 테이블 생성
 Base.metadata.create_all(bind=engine)
 
@@ -78,7 +88,7 @@ app.include_router(videos.router, prefix="/api/videos", tags=["videos"])
 def read_root():
     return {"message": "Welcome to Video Manager"}
 
-def start_server(host: str = "127.0.0.1", port: int = 8000):
+def start_server(host: str = "localhost", port: int = 8000):
     """서버를 시작합니다."""
     setup_signal_handlers()  # 시그널 핸들러 설정
     
@@ -103,7 +113,7 @@ if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser(description="Video Manager Server")
-    parser.add_argument("--host", default="127.0.0.1", help="서버 호스트 주소")
+    parser.add_argument("--host", default="localhost", help="서버 호스트 주소")
     parser.add_argument("--port", type=int, default=8000, help="서버 포트 번호")
     
     args = parser.parse_args()

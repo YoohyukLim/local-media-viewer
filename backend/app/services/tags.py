@@ -110,7 +110,6 @@ def search_videos_by_tags(db: Session, tags: List[str], require_all: bool = Fals
             "category": video.category,
             "created_at": video.created_at,
             "updated_at": video.updated_at,
-            "thumbnail_path": settings.get_thumbnail_path(video.thumbnail_id),
             "tags": [{"id": tag.id, "name": tag.name} for tag in video.tags]
         }
         result.append(video_dict)

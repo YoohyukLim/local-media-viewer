@@ -138,7 +138,6 @@ def get_videos(db: Session, page: int = 1, page_size: int = 10) -> tuple[List[di
             "category": video.category,
             "created_at": video.created_at,
             "updated_at": video.updated_at,
-            "thumbnail_path": settings.get_thumbnail_path(video.thumbnail_id),
             "tags": [{"id": tag.id, "name": tag.name} for tag in video.tags]
         }
         result.append(video_dict)
