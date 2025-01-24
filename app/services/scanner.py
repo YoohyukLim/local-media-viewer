@@ -74,13 +74,15 @@ def scan_videos(db: Session):
                                     if duration > 0:
                                         existing_video.duration = duration
                                         existing_video.file_name = Video.get_file_name(file_path)
+                                        db.add(existing_video)  # 세션에 추가
+                                        db.flush()  # ID 생성을 위해 flush
                                         update_video_metadata(existing_video, file_path, base_dir, db)
-                                        db.add(existing_video)
                                 else:
                                     if not ensure_thumbnail(existing_video, file_path, settings):
                                         print(f"Failed to create thumbnail for existing video: {file_path}")
+                                    db.add(existing_video)  # 세션에 추가
+                                    db.flush()  # ID 생성을 위해 flush
                                     update_video_metadata(existing_video, file_path, base_dir, db)
-                                    db.add(existing_video)
                             else:
                                 print(f"Adding new video: {file_path}")
                                 thumbnail_id = Video.generate_thumbnail_id()
@@ -94,24 +96,24 @@ def scan_videos(db: Session):
                                         thumbnail_id=thumbnail_id,
                                         duration=duration
                                     )
+                                    db.add(video)  # 세션에 추가
+                                    db.flush()  # ID 생성을 위해 flush
                                     update_video_metadata(video, file_path, base_dir, db)
-                                    db.add(video)
                                 else:
                                     print(f"Skipping {file_path} due to thumbnail creation failure")
                         except Exception as e:
                             print(f"Error processing file {file_path}: {str(e)}")
+                            db.rollback()  # 에러 발생 시 롤백
                             raise
         
         remove_missing_videos(db, existing_files, settings.VIDEO_DIRECTORIES, settings)
-        db.commit()
-        
-        # 사용되지 않는 태그 정리
         cleanup_unused_tags(db)
-        
+        db.commit()  # 모든 작업이 성공적으로 완료되면 커밋
         print("Video scan completed successfully")
         
     except Exception as e:
         print(f"Error in scan_videos: {str(e)}")
+        db.rollback()  # 에러 발생 시 롤백
         raise
 
 def get_videos(db: Session, page: int = 1, page_size: int = 10) -> tuple[List[dict], int]:

@@ -49,19 +49,29 @@ def get_or_create_tag(db: Session, tag_name: str) -> Tag:
     if not tag:
         tag = Tag(name=tag_name)
         db.add(tag)
-        db.commit()
+        try:
+            db.flush()  # commit 전에 flush하여 ID 생성
+        except:
+            db.rollback()
+            raise
     return tag
 
 def update_video_tags(db: Session, video: Video, tag_names: List[str]):
     """비디오의 태그를 업데이트합니다."""
-    # 기존 태그 모두 제거
-    video.tags.clear()
-    
-    # 새로운 태그 추가
-    for tag_name in tag_names:
-        if tag_name.strip():  # 빈 태그 제외
-            tag = get_or_create_tag(db, tag_name.strip())
-            video.tags.append(tag)
+    try:
+        # 기존 태그 모두 제거
+        video.tags.clear()
+        
+        # 새로운 태그 추가
+        for tag_name in tag_names:
+            if tag_name.strip():  # 빈 태그 제외
+                tag = get_or_create_tag(db, tag_name.strip())
+                video.tags.append(tag)
+        
+        db.commit()  # 여기서 한 번에 커밋
+    except:
+        db.rollback()
+        raise
 
 def get_all_tags(db: Session) -> List[Tag]:
     """모든 태그 목록을 반환합니다."""
