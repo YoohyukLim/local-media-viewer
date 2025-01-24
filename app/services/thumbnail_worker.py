@@ -6,7 +6,7 @@ from typing import Dict, Optional, Tuple
 from concurrent.futures import ProcessPoolExecutor, Future
 from .thumbnail import create_thumbnail
 from ..config import Settings
-from ..logger import get_worker_logger
+from ..logger import LogManager
 from multiprocessing import get_context
 import signal
 from functools import partial
@@ -27,7 +27,7 @@ class ThumbnailWorker:
         self._executor: Optional[ProcessPoolExecutor] = None
         self._futures: Dict[str, Tuple[Future, str]] = {}
         self._lock = threading.Lock()
-        self.logger = get_worker_logger()
+        self.logger = LogManager.get_instance().logger
     
     def start(self):
         """작업자 스레드를 시작합니다."""

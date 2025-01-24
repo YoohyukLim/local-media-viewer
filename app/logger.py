@@ -63,24 +63,6 @@ class LogManager:
 log_manager = LogManager.get_instance()
 logger = log_manager.logger
 
-def get_worker_logger():
-    """워커 프로세스용 로거를 반환합니다."""
-    worker_logger = logging.getLogger('video_manager.worker')
-    if not worker_logger.handlers:
-        log_dir = "logs"
-        os.makedirs(log_dir, exist_ok=True)
-        
-        file_handler = logging.FileHandler(
-            os.path.join(log_dir, "thumbnail_worker.log"),
-            encoding='utf-8'
-        )
-        file_handler.setLevel(logging.INFO)
-        formatter = CustomFormatter('[%(timestamp)s] %(message)s')
-        file_handler.setFormatter(formatter)
-        worker_logger.addHandler(file_handler)
-        worker_logger.setLevel(logging.INFO)
-    return worker_logger
-
 def shutdown_logger():
     """로거를 종료합니다."""
     log_manager.stop() 
