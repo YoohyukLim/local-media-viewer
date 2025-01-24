@@ -58,28 +58,21 @@ def list_tags(db: Session = Depends(get_db)):
 def search_videos(
     tags: List[str] = Query(..., description="검색할 태그 목록"),
     require_all: bool = Query(False, description="모든 태그를 포함해야 하는지 여부"),
+    page: int = Query(1, ge=1, description="페이지 번호"),
+    page_size: int = Query(10, ge=1, le=100, description="페이지당 아이템 수"),
     db: Session = Depends(get_db)
 ):
     """태그로 비디오를 검색합니다."""
-    videos = search_videos_by_tags(db, tags, require_all)
-    result = []
+    videos, total = search_videos_by_tags(db, tags, require_all, page, page_size)
+    total_pages = (total + page_size - 1) // page_size
     
-    for video in videos:
-        video_dict = {
-            "id": video.id,
-            "file_path": video.file_path,
-            "file_name": video.file_name,
-            "thumbnail_id": video.thumbnail_id,
-            "duration": video.duration,
-            "category": video.category,
-            "created_at": video.created_at,
-            "updated_at": video.updated_at,
-            "thumbnail_path": settings.get_thumbnail_path(video.thumbnail_id),
-            "tags": [{"id": tag.id, "name": tag.name} for tag in video.tags]
-        }
-        result.append(video_dict)
-    
-    return result
+    return {
+        "total_items": total,
+        "total_pages": total_pages,
+        "current_page": page,
+        "page_size": page_size,
+        "items": videos
+    }
 
 @router.post("/{video_id}/tags", 
     summary="비디오에 태그 추가",
