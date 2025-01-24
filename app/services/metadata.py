@@ -3,6 +3,7 @@ import cv2
 from datetime import datetime
 from sqlalchemy.orm import Session
 from .tags import update_video_tags
+from typing import List
 
 def get_video_duration(video_path: str) -> float:
     """비디오 파일의 길이를 초 단위로 반환합니다."""

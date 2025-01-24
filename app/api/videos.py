@@ -1,13 +1,18 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from ..database import get_db
 from ..services.scanner import scan_videos, get_videos
-from ..services.tags import search_videos_by_tags, get_all_tags
+from ..services.tags import search_videos_by_tags, get_all_tags, add_video_tag, remove_video_tag
 from ..config import settings
 from ..models.video import Video
 
 router = APIRouter()
+
+# 요청 모델 추가
+class AddTagRequest(BaseModel):
+    tag_name: str
 
 @router.post("/scan", summary="비디오 파일 스캔", 
     description="설정된 디렉토리들에서 비디오 파일들을 스캔하여 DB에 저장합니다.")
@@ -45,3 +50,43 @@ def search_videos(
     for video in videos:
         video.thumbnail_path = settings.get_thumbnail_path(video.thumbnail_id)
     return videos 
+
+@router.post("/{video_id}/tags", 
+    summary="비디오에 태그 추가",
+    description="지정된 비디오에 태그를 추가합니다.")
+def add_tag(
+    video_id: int,
+    tag_request: AddTagRequest,
+    db: Session = Depends(get_db)
+):
+    """비디오에 태그를 추가합니다."""
+    video, added = add_video_tag(db, video_id, tag_request.tag_name)
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+    
+    return {
+        "message": "Tag added successfully" if added else "Tag already exists",
+        "video_id": video_id,
+        "tag_name": tag_request.tag_name,
+        "added": added
+    }
+
+@router.delete("/{video_id}/tags/{tag_id}",
+    summary="비디오에서 태그 제거",
+    description="지정된 비디오에서 태그를 제거합니다.")
+def remove_tag(
+    video_id: int,
+    tag_id: int,
+    db: Session = Depends(get_db)
+):
+    """비디오에서 태그를 제거합니다."""
+    video, removed = remove_video_tag(db, video_id, tag_id)
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+    
+    return {
+        "message": "Tag removed successfully" if removed else "Tag not found",
+        "video_id": video_id,
+        "tag_id": tag_id,
+        "removed": removed
+    } 
