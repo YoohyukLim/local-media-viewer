@@ -14,25 +14,14 @@ def get_or_create_tag(db: Session, tag_name: str) -> Tag:
 
 def update_video_tags(db: Session, video: Video, tag_names: List[str]):
     """비디오의 태그를 업데이트합니다."""
-    try:
-        print(f"Updating tags for video: {video.file_path}")
-        print(f"Tags to add: {tag_names}")
-        
-        # 기존 태그 모두 제거
-        video.tags.clear()
-        
-        # 새로운 태그 추가
-        for tag_name in tag_names:
-            if tag_name.strip():
-                try:
-                    tag = get_or_create_tag(db, tag_name.strip())
-                    print(f"Adding tag: {tag.name}")
-                    video.tags.append(tag)
-                except Exception as e:
-                    print(f"Error adding tag '{tag_name}': {str(e)}")
-    except Exception as e:
-        print(f"Error in update_video_tags: {str(e)}")
-        raise
+    # 기존 태그 모두 제거
+    video.tags.clear()
+    
+    # 새로운 태그 추가
+    for tag_name in tag_names:
+        if tag_name.strip():  # 빈 태그 제외
+            tag = get_or_create_tag(db, tag_name.strip())
+            video.tags.append(tag)
 
 def get_all_tags(db: Session) -> List[Tag]:
     """모든 태그 목록을 반환합니다."""

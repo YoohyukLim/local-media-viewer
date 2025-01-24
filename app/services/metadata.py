@@ -65,20 +65,7 @@ def read_video_metadata(file_path: str, base_dir: str) -> tuple[str | None, list
 
 def update_video_metadata(video, file_path: str, base_dir: str, db: Session):
     """비디오의 메타데이터를 업데이트합니다."""
-    try:
-        print(f"Reading metadata for: {file_path}")
-        category, tag_names = read_video_metadata(file_path, base_dir)
-        print(f"Found category: {category}")
-        print(f"Found tags: {tag_names}")
-        
-        if category is not None:
-            video.category = category
-        
-        try:
-            update_video_tags(db, video, tag_names)
-        except Exception as e:
-            print(f"Error updating tags: {str(e)}")
-            raise
-    except Exception as e:
-        print(f"Error in update_video_metadata: {str(e)}")
-        raise 
+    category, tag_names = read_video_metadata(file_path, base_dir)
+    if category is not None:
+        video.category = category
+    update_video_tags(db, video, tag_names) 

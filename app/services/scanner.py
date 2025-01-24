@@ -49,24 +49,20 @@ def scan_videos(db: Session):
     try:
         print("Starting video scan...")
         reload_settings()
-        print(f"Settings loaded: {settings.VIDEO_DIRECTORIES}")
         
         video_extensions = ('.mp4', '.avi', '.mkv', '.mov')
         existing_files = set()
         
         for base_dir in settings.VIDEO_DIRECTORIES:
-            print(f"Scanning directory: {base_dir}")
             for root, _, files in os.walk(base_dir):
                 for file in files:
                     if file.lower().endswith(video_extensions):
                         try:
                             file_path = os.path.join(root, file)
-                            print(f"Processing file: {file_path}")
                             existing_files.add(file_path)
                             
                             existing_video = db.query(Video).filter(Video.file_path == file_path).first()
                             if existing_video:
-                                print(f"Found existing video: {file_path}")
                                 if is_video_modified(file_path, existing_video):
                                     print(f"Updating modified video: {file_path}")
                                     if not ensure_thumbnail(existing_video, file_path, settings):
@@ -78,8 +74,6 @@ def scan_videos(db: Session):
                                         existing_video.file_name = Video.get_file_name(file_path)
                                         update_video_metadata(existing_video, file_path, base_dir, db)
                                         db.add(existing_video)
-                                    else:
-                                        print(f"Failed to get duration for existing video: {file_path}")
                                 else:
                                     if not ensure_thumbnail(existing_video, file_path, settings):
                                         print(f"Failed to create thumbnail for existing video: {file_path}")
@@ -103,24 +97,38 @@ def scan_videos(db: Session):
                                 else:
                                     print(f"Skipping {file_path} due to thumbnail creation failure")
                         except Exception as e:
-                            print(f"Error processing file {file}: {str(e)}")
+                            print(f"Error processing file {file_path}: {str(e)}")
                             raise
         
-        print("Removing missing videos...")
         remove_missing_videos(db, existing_files, settings.VIDEO_DIRECTORIES, settings)
         db.commit()
         print("Video scan completed successfully")
         
     except Exception as e:
         print(f"Error in scan_videos: {str(e)}")
-        print(f"Error type: {type(e)}")
-        import traceback
-        print(f"Traceback: {traceback.format_exc()}")
         raise
 
 def get_videos(db: Session):
     """저장된 모든 비디오 목록을 반환합니다."""
     videos = db.query(Video).all()
+    result = []
+    
     for video in videos:
-        video.thumbnail_path = settings.get_thumbnail_path(video.thumbnail_id)
-    return videos 
+        # 기본 비디오 정보를 딕셔너리로 변환
+        video_dict = {
+            "id": video.id,
+            "file_path": video.file_path,
+            "file_name": video.file_name,
+            "thumbnail_id": video.thumbnail_id,
+            "duration": video.duration,
+            "category": video.category,
+            "created_at": video.created_at,
+            "updated_at": video.updated_at,
+            # 썸네일 전체 경로 추가
+            "thumbnail_path": settings.get_thumbnail_path(video.thumbnail_id),
+            # 태그 정보 추가
+            "tags": [{"id": tag.id, "name": tag.name} for tag in video.tags]
+        }
+        result.append(video_dict)
+    
+    return result 
