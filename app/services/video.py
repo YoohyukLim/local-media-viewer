@@ -89,12 +89,27 @@ def is_video_modified(file_path: str, video: Video) -> bool:
         print(f"Error checking modification time for {file_path}: {str(e)}")
         return False
 
-def read_video_metadata(file_path: str) -> tuple[str | None, list[str]]:
+def get_directory_tags(file_path: str, base_dir: str) -> list[str]:
+    """파일이 포함된 디렉토리들의 이름을 태그로 반환합니다."""
+    # base_dir과 file_path의 상대 경로를 구함
+    rel_path = os.path.relpath(os.path.dirname(file_path), base_dir)
+    
+    # 상대 경로가 현재 디렉토리('.')인 경우 빈 리스트 반환
+    if rel_path == '.':
+        return []
+    
+    # 경로를 디렉토리 이름들로 분리하고 빈 문자열 제거
+    directories = [d for d in rel_path.split(os.sep) if d]
+    return directories
+
+def read_video_metadata(file_path: str, base_dir: str) -> tuple[str | None, list[str]]:
     """비디오의 메타데이터 파일을 읽어 카테고리와 태그 목록을 반환합니다."""
-    # .txt 대신 .info 확장자 사용
     metadata_path = f"{os.path.splitext(file_path)[0]}.info"
     category = None
     tags = []
+    
+    # 디렉토리 이름들을 태그로 추가
+    tags.extend(get_directory_tags(file_path, base_dir))
     
     try:
         if os.path.exists(metadata_path):
@@ -114,22 +129,64 @@ def read_video_metadata(file_path: str) -> tuple[str | None, list[str]]:
     
     return category, tags
 
-def update_video_metadata(video: Video, file_path: str):
+def update_video_metadata(video: Video, file_path: str, base_dir: str):
     """비디오의 메타데이터를 업데이트합니다."""
-    category, tags = read_video_metadata(file_path)
+    category, tags = read_video_metadata(file_path, base_dir)
     if category is not None:
         video.category = category
     video.tags = tags
 
+def is_file_in_video_directories(file_path: str, video_directories: list[str]) -> bool:
+    """파일이 설정된 비디오 디렉토리 중 하나에 포함되어 있는지 확인합니다."""
+    file_path = os.path.normpath(file_path)
+    for dir_path in video_directories:
+        dir_path = os.path.normpath(dir_path)
+        if file_path.startswith(dir_path):
+            return True
+    return False
+
+def remove_missing_videos(db: Session, existing_files: set[str], video_directories: list[str]):
+    """실제로 존재하지 않거나 설정된 디렉토리 외부에 있는 비디오 파일들을 DB에서 삭제합니다."""
+    # DB의 모든 비디오 가져오기
+    all_videos = db.query(Video).all()
+    
+    for video in all_videos:
+        # 파일이 존재하지 않거나 설정된 디렉토리 외부에 있는 경우
+        if (video.file_path not in existing_files or 
+            not is_file_in_video_directories(video.file_path, video_directories)):
+            print(f"Removing video from DB: {video.file_path}")
+            # 썸네일 파일 삭제
+            try:
+                thumbnail_path = settings.get_thumbnail_path(video.thumbnail_id)
+                if os.path.exists(thumbnail_path):
+                    os.remove(thumbnail_path)
+            except Exception as e:
+                print(f"Error removing thumbnail file: {str(e)}")
+            # DB에서 비디오 정보 삭제
+            db.delete(video)
+    
+    db.commit()
+
+def reload_settings() -> None:
+    """설정 파일을 다시 로드합니다."""
+    global settings
+    from ..config import Settings
+    settings = Settings()
+
 def scan_videos(db: Session):
     """설정된 디렉토리들의 비디오 파일들을 스캔하여 DB에 저장합니다."""
+    # 설정 파일 다시 로드
+    reload_settings()
+    
     video_extensions = ('.mp4', '.avi', '.mkv', '.mov')
+    existing_files = set()  # 실제 존재하는 파일 경로들
     
     for base_dir in settings.VIDEO_DIRECTORIES:
         for root, _, files in os.walk(base_dir):
             for file in files:
                 if file.lower().endswith(video_extensions):
                     file_path = os.path.join(root, file)
+                    existing_files.add(file_path)  # 존재하는 파일 기록
                     
                     # DB에 이미 존재하는지 확인
                     existing_video = db.query(Video).filter(Video.file_path == file_path).first()
@@ -146,13 +203,13 @@ def scan_videos(db: Session):
                             if duration > 0:
                                 existing_video.duration = duration
                                 existing_video.file_name = Video.get_file_name(file_path)
-                                update_video_metadata(existing_video, file_path)
+                                update_video_metadata(existing_video, file_path, base_dir)
                                 db.add(existing_video)
                         else:
                             # 썸네일과 메타데이터만 확인
                             if not ensure_thumbnail(existing_video, file_path):
                                 print(f"Failed to create thumbnail for existing video: {file_path}")
-                            update_video_metadata(existing_video, file_path)
+                            update_video_metadata(existing_video, file_path, base_dir)
                             db.add(existing_video)
                     else:
                         # 새 비디오 추가
@@ -169,10 +226,13 @@ def scan_videos(db: Session):
                                 duration=duration,
                                 tags=[]  # 기본값 설정
                             )
-                            update_video_metadata(video, file_path)
+                            update_video_metadata(video, file_path, base_dir)
                             db.add(video)
                         else:
                             print(f"Skipping {file_path} due to thumbnail creation failure")
+    
+    # 실제로 존재하지 않거나 설정된 디렉토리 외부에 있는 파일들을 DB에서 삭제
+    remove_missing_videos(db, existing_files, settings.VIDEO_DIRECTORIES)
     
     db.commit()
 
