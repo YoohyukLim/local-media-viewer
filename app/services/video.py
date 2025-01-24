@@ -4,6 +4,7 @@ import numpy as np
 from sqlalchemy.orm import Session
 from ..models.video import Video
 from ..config import settings
+from datetime import datetime
 
 def create_thumbnail(video_path: str, output_path: str, max_size: int = 1080):
     """비디오 파일로부터 썸네일을 생성합니다."""
@@ -79,6 +80,15 @@ def get_video_duration(video_path: str) -> float:
         print(f"Error getting duration for {video_path}: {str(e)}")
         return 0.0
 
+def is_video_modified(file_path: str, video: Video) -> bool:
+    """비디오 파일이 DB 데이터 이후에 수정되었는지 확인합니다."""
+    try:
+        file_mtime = datetime.fromtimestamp(os.path.getmtime(file_path))
+        return file_mtime > video.updated_at
+    except Exception as e:
+        print(f"Error checking modification time for {file_path}: {str(e)}")
+        return False
+
 def scan_videos(db: Session):
     """설정된 디렉토리들의 비디오 파일들을 스캔하여 DB에 저장합니다."""
     video_extensions = ('.mp4', '.avi', '.mkv', '.mov')
@@ -92,15 +102,22 @@ def scan_videos(db: Session):
                     # DB에 이미 존재하는지 확인
                     existing_video = db.query(Video).filter(Video.file_path == file_path).first()
                     if existing_video:
-                        # 기존 비디오의 썸네일 확인 및 생성
-                        if not ensure_thumbnail(existing_video, file_path):
-                            print(f"Failed to create thumbnail for existing video: {file_path}")
-                        
-                        # 영상 길이 업데이트
-                        duration = get_video_duration(file_path)
-                        if duration > 0 and duration != existing_video.duration:
-                            existing_video.duration = duration
-                            db.add(existing_video)
+                        # 파일이 수정되었는지 확인
+                        if is_video_modified(file_path, existing_video):
+                            print(f"Updating modified video: {file_path}")
+                            # 썸네일 재생성
+                            if not ensure_thumbnail(existing_video, file_path):
+                                print(f"Failed to create thumbnail for existing video: {file_path}")
+                            
+                            # 영상 길이 업데이트
+                            duration = get_video_duration(file_path)
+                            if duration > 0:
+                                existing_video.duration = duration
+                                db.add(existing_video)
+                        else:
+                            # 썸네일만 확인
+                            if not ensure_thumbnail(existing_video, file_path):
+                                print(f"Failed to create thumbnail for existing video: {file_path}")
                     else:
                         # 새 비디오 추가
                         thumbnail_id = Video.generate_thumbnail_id()
