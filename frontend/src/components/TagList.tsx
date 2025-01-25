@@ -75,6 +75,24 @@ const Title = styled.h2`
   color: #333;
 `;
 
+const SearchInput = styled.input`
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  
+  &:focus {
+    outline: none;
+    border-color: #999;
+  }
+  
+  &::placeholder {
+    color: #999;
+  }
+`;
+
 // 파스텔톤 색상 배열
 const pastelColors = [
   '#FFE5E5', // 연한 분홍
@@ -113,6 +131,7 @@ interface Props {
 export const TagList: React.FC<Props> = ({ tags, onTagClick, onWidthChange }) => {
   const [width, setWidth] = useState(240);
   const [isResizing, setIsResizing] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const startResizing = useCallback((e: React.MouseEvent) => {
     setIsResizing(true);
@@ -143,10 +162,20 @@ export const TagList: React.FC<Props> = ({ tags, onTagClick, onWidthChange }) =>
     };
   }, [isResizing, resize, stopResizing]);
 
+  const filteredTags = tags.filter(tag => 
+    tag.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <Sidebar width={width}>
       <Title>태그 목록</Title>
-      {tags.map((tag, index) => (
+      <SearchInput
+        type="text"
+        placeholder="태그 검색..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+      />
+      {filteredTags.map((tag, index) => (
         <TagItem 
           key={tag.id}
           colorIndex={index % pastelColors.length}
