@@ -12,6 +12,31 @@ const Sidebar = styled.div`
   left: 0;
   top: 0;
   overflow-y: auto;
+  
+  /* Firefox */
+  scrollbar-width: none;
+  &:hover:active {
+    scrollbar-width: thin;
+    scrollbar-color: #999 transparent;
+  }
+  
+  /* Chrome, Safari, Edge */
+  &::-webkit-scrollbar {
+    width: 0;
+  }
+  
+  &:hover:active::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background-color: #999;
+    border-radius: 3px;
+    
+    &:hover {
+      background-color: #666;
+    }
+  }
 `;
 
 const Title = styled.h2`
@@ -69,4 +94,4 @@ export const TagList: React.FC<Props> = ({ tags, onTagClick }) => {
       ))}
     </Sidebar>
   );
-}; 
+};
