@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - type: bind
+        source: D:/config-path # 실제 경로로 수정해주세요
+        target: /config
+      - type: bind
+        source: D:/data-path # 실제 경로로 수정해주세요
+        target: /videos/data
+      - type: bind
+        source: D:/video-path1 # 실제 경로로 수정해주세요
+        target: /videos/path1
+      - type: bind
+        source: D:/video-path2
+        target: /videos/path2
+    environment:
+      - PORT=8000
+      - CONFIG_PATH=/config/config.yaml
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
