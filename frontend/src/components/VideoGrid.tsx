@@ -10,12 +10,48 @@ const Grid = styled.div`
   padding: 1rem;
 `;
 
-const VideoCard = styled.div`
-  border: 1px solid #ddd;
+const VideoCard = styled.div<{ isSelected?: boolean }>`
+  border: 1px solid ${props => props.isSelected ? '#339af0' : '#ddd'};
   border-radius: 8px;
   overflow: hidden;
   background: white;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: ${props => props.isSelected ? 
+    '0 0 0 2px rgba(51, 154, 240, 0.5)' : 
+    '0 2px 4px rgba(0,0,0,0.1)'};
+  transition: all 0.2s ease-in-out;
+  position: relative;
+  
+  &:hover:not([data-modal-open="true"]) {
+    &::after {
+      content: '';
+      position: absolute;
+      top: -10px;
+      left: -10px;
+      right: -10px;
+      bottom: -10px;
+      pointer-events: none;
+      z-index: 1;
+      border-radius: 16px;
+      background: radial-gradient(
+        circle at center,
+        rgba(51, 154, 240, 0.15) 0%,
+        rgba(51, 154, 240, 0.1) 40%,
+        rgba(51, 154, 240, 0.05) 60%,
+        rgba(51, 154, 240, 0) 100%
+      );
+      opacity: 0;
+      animation: fadeIn 0.2s ease-in-out forwards;
+    }
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
   
   img {
     width: 100%;
@@ -282,7 +318,11 @@ export const VideoGrid: React.FC<Props> = ({
             thumbnailUrl;
           
           return (
-            <VideoCard key={video.id}>
+            <VideoCard 
+              key={video.id}
+              isSelected={selectedVideo?.id === video.id}
+              data-modal-open={!!selectedVideo}
+            >
               <ThumbnailContainer>
                 {state.error ? (
                   <LoadingPlaceholder>
