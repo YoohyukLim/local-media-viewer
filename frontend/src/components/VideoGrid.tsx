@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { Video } from '../types/video';
 
@@ -60,32 +60,114 @@ const Tag = styled.span`
   font-size: 0.8rem;
 `;
 
-const LoadingPlaceholder = styled.div`
+const ThumbnailContainer = styled.div`
   width: 100%;
   aspect-ratio: 16/9;
   background: #f8f9fa;
+  position: relative;
+  overflow: hidden;
+  
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    cursor: pointer;
+    position: absolute;
+    top: 0;
+    left: 0;
+    
+    &:hover {
+      opacity: 0.8;
+    }
+  }
+`;
+
+const LoadingPlaceholder = styled.div`
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #666;
+  position: absolute;
+  top: 0;
+  left: 0;
 `;
+
+interface ThumbnailState {
+  loading: boolean;
+  error: boolean;
+  retryCount: number;
+  retryTimer?: NodeJS.Timeout;
+  loadedUrl?: string;  // 성공적으로 로드된 URL 저장
+}
 
 interface Props {
   videos: Video[];
 }
 
 export const VideoGrid: React.FC<Props> = ({ videos }) => {
-  const [loadingStates, setLoadingStates] = useState<{[key: number]: boolean}>({});
-  const [errorStates, setErrorStates] = useState<{[key: number]: boolean}>({});
+  const [thumbnailStates, setThumbnailStates] = useState<{ [key: number]: ThumbnailState }>({});
 
-  const handleImageLoad = (videoId: number) => {
-    setLoadingStates(prev => ({ ...prev, [videoId]: false }));
-    setErrorStates(prev => ({ ...prev, [videoId]: false }));
+  // 컴포넌트 언마운트 시 타이머 정리
+  useEffect(() => {
+    return () => {
+      Object.values(thumbnailStates).forEach(state => {
+        if (state.retryTimer) {
+          clearTimeout(state.retryTimer);
+        }
+      });
+    };
+  }, [thumbnailStates]);
+
+  const handleImageLoad = (videoId: number, url: string) => {
+    setThumbnailStates(prev => ({
+      ...prev,
+      [videoId]: { 
+        loading: false, 
+        error: false, 
+        retryCount: 0,
+        loadedUrl: url 
+      }
+    }));
   };
 
   const handleImageError = (videoId: number) => {
-    setLoadingStates(prev => ({ ...prev, [videoId]: false }));
-    setErrorStates(prev => ({ ...prev, [videoId]: true }));
+    setThumbnailStates(prev => {
+      const currentState = prev[videoId] || { 
+        loading: false, 
+        error: false, 
+        retryCount: 0 
+      };
+      const newRetryCount = currentState.retryCount + 1;
+      
+      if (currentState.retryTimer) {
+        clearTimeout(currentState.retryTimer);
+      }
+
+      const retryTimer = setTimeout(() => {
+        setThumbnailStates(latest => ({
+          ...latest,
+          [videoId]: {
+            ...latest[videoId],
+            loading: true,
+            error: false,
+            retryTimer: undefined
+          }
+        }));
+      }, 3000);
+
+      return {
+        ...prev,
+        [videoId]: {
+          ...currentState,
+          loading: false,
+          error: true,
+          retryCount: newRetryCount,
+          retryTimer
+        }
+      };
+    });
   };
 
   const formatDuration = (seconds: number) => {
@@ -111,35 +193,54 @@ export const VideoGrid: React.FC<Props> = ({ videos }) => {
 
   return (
     <Grid>
-      {videos.map(video => (
-        <VideoCard key={video.id}>
-          {errorStates[video.id] ? (
-            <LoadingPlaceholder>
-              Loading...
-            </LoadingPlaceholder>
-          ) : (
-            <img 
-              src={`/api/videos/thumbnails/${video.thumbnail_id}`}
-              alt={video.file_name}
-              onLoad={() => handleImageLoad(video.id)}
-              onError={() => handleImageError(video.id)}
-              onClick={() => handleVideoClick(video.id)}
-              title="Click to play video"
-            />
-          )}
-          <div className="info">
-            <h3 title={video.file_name}>{video.file_name}</h3>
-            <div className="meta">
-              {formatDuration(video.duration)}
+      {videos.map(video => {
+        const state = thumbnailStates[video.id] || { 
+          loading: true, 
+          error: false, 
+          retryCount: 0 
+        };
+        
+        const thumbnailUrl = `/api/videos/thumbnails/${video.thumbnail_id}`;
+        const imageUrl = state.loading ? 
+          `${thumbnailUrl}?t=${Date.now()}` : 
+          (state.loadedUrl || thumbnailUrl);
+        
+        return (
+          <VideoCard key={video.id}>
+            <ThumbnailContainer>
+              {state.error ? (
+                <LoadingPlaceholder>
+                  Loading...
+                </LoadingPlaceholder>
+              ) : (
+                <img 
+                  src={imageUrl}
+                  alt={video.file_name}
+                  onLoad={() => handleImageLoad(video.id, imageUrl)}
+                  onError={() => handleImageError(video.id)}
+                  onClick={() => handleVideoClick(video.id)}
+                  title="Click to play video"
+                  style={{ 
+                    opacity: state.loadedUrl ? 1 : 0,
+                    transition: 'opacity 0.3s'
+                  }}
+                />
+              )}
+            </ThumbnailContainer>
+            <div className="info">
+              <h3 title={video.file_name}>{video.file_name}</h3>
+              <div className="meta">
+                {formatDuration(video.duration)}
+              </div>
+              <div className="tags">
+                {video.tags.map(tag => (
+                  <Tag key={tag.id}>{tag.name}</Tag>
+                ))}
+              </div>
             </div>
-            <div className="tags">
-              {video.tags.map(tag => (
-                <Tag key={tag.id}>{tag.name}</Tag>
-              ))}
-            </div>
-          </div>
-        </VideoCard>
-      ))}
+          </VideoCard>
+        );
+      })}
     </Grid>
   );
 }; 
