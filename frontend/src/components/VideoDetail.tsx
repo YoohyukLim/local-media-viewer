@@ -299,6 +299,8 @@ export const VideoDetail: React.FC<Props> = ({
   const [newTagName, setNewTagName] = useState('');
   const [modifiedTags, setModifiedTags] = useState<Video['tags']>(video.tags);
   const [isModified, setIsModified] = useState(false);
+  const [thumbnailError, setThumbnailError] = useState(false);
+  const [thumbnailLoading, setThumbnailLoading] = useState(true);
 
   const formatDuration = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -442,6 +444,15 @@ export const VideoDetail: React.FC<Props> = ({
     };
   }, [onPrevVideo, onNextVideo, onClose, hasPrevVideo, hasNextVideo]);
 
+  const handleThumbnailError = () => {
+    setThumbnailError(true);
+    setThumbnailLoading(false);
+  };
+
+  const handleThumbnailLoad = () => {
+    setThumbnailLoading(false);
+  };
+
   return (
     <Overlay onClick={onClose}>
       <DetailContainer onClick={e => e.stopPropagation()}>
@@ -450,11 +461,27 @@ export const VideoDetail: React.FC<Props> = ({
             e.stopPropagation();
             onClose();
           }} />
-          <img 
-            src={`/api/videos/thumbnails/${video.thumbnail_id}`}
-            alt={video.file_name}
-            title="Click to play video"
-          />
+          <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden mb-4">
+            {thumbnailLoading && (
+              <div className="w-full h-full flex items-center justify-center">
+                <span className="text-gray-500">Loading...</span>
+              </div>
+            )}
+            {!thumbnailError && (
+              <img
+                src={`http://localhost:8000/api/videos/thumbnails/${video.thumbnail_id}`}
+                alt={video.file_name}
+                className={`w-full h-full object-contain ${thumbnailLoading ? 'hidden' : ''}`}
+                onError={handleThumbnailError}
+                onLoad={handleThumbnailLoad}
+              />
+            )}
+            {thumbnailError && !thumbnailLoading && (
+              <div className="w-full h-full flex items-center justify-center">
+                <span className="text-gray-500">Thumbnail not available</span>
+              </div>
+            )}
+          </div>
         </ThumbnailSection>
         <InfoSection>
           <h2>{video.file_name}</h2>
