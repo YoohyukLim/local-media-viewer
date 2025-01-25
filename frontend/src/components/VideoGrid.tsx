@@ -223,9 +223,9 @@ export const VideoGrid: React.FC<Props> = ({ videos, onTagClick }) => {
         };
         
         const thumbnailUrl = `/api/videos/thumbnails/${video.thumbnail_id}`;
-        const imageUrl = state.loading ? 
+        const imageUrl = state.error ? 
           `${thumbnailUrl}?t=${Date.now()}` : 
-          (state.loadedUrl || thumbnailUrl);
+          thumbnailUrl;
         
         return (
           <VideoCard key={video.id}>
