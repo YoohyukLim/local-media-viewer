@@ -4,9 +4,10 @@ export interface Video {
   file_name: string;
   thumbnail_id: string;
   duration: number;
-  tags: Tag[];
+  category: string | null;
   created_at: string;
   updated_at: string;
+  tags: Tag[];
 }
 
 export interface Tag {

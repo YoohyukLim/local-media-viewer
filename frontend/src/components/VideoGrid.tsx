@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { Video } from '../types/video';
+import { VideoDetail } from './VideoDetail';
 
 const Grid = styled.div`
   display: grid;
@@ -120,6 +121,7 @@ interface Props {
 
 export const VideoGrid: React.FC<Props> = ({ videos, onTagClick }) => {
   const [thumbnailStates, setThumbnailStates] = useState<{ [key: number]: ThumbnailState }>({});
+  const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
 
   // 컴포넌트 언마운트 시 타이머 정리
   useEffect(() => {
@@ -219,64 +221,101 @@ export const VideoGrid: React.FC<Props> = ({ videos, onTagClick }) => {
     }
   };
 
+  const handlePrevVideo = () => {
+    if (selectedVideo) {
+      const currentIndex = videos.findIndex(v => v.id === selectedVideo.id);
+      if (currentIndex > 0) {
+        setSelectedVideo(videos[currentIndex - 1]);
+      }
+    }
+  };
+
+  const handleNextVideo = () => {
+    if (selectedVideo) {
+      const currentIndex = videos.findIndex(v => v.id === selectedVideo.id);
+      if (currentIndex < videos.length - 1) {
+        setSelectedVideo(videos[currentIndex + 1]);
+      }
+    }
+  };
+
   return (
-    <Grid>
-      {videos.map(video => {
-        const state = thumbnailStates[video.id] || { 
-          loading: true, 
-          error: false, 
-          retryCount: 0 
-        };
-        
-        const thumbnailUrl = `/api/videos/thumbnails/${video.thumbnail_id}`;
-        const imageUrl = state.error ? 
-          `${thumbnailUrl}?t=${Date.now()}` : 
-          thumbnailUrl;
-        
-        return (
-          <VideoCard key={video.id}>
-            <ThumbnailContainer>
-              {state.error ? (
-                <LoadingPlaceholder>
-                  Loading...
-                </LoadingPlaceholder>
-              ) : (
-                <img 
-                  src={imageUrl}
-                  alt={video.file_name}
-                  onLoad={() => handleImageLoad(video.id, imageUrl)}
-                  onError={() => handleImageError(video.id)}
-                  onClick={() => handleVideoClick(video.id)}
-                  title="Click to play video"
-                  style={{ 
-                    opacity: state.loadedUrl ? 1 : 0,
-                    transition: 'opacity 0.3s'
-                  }}
-                />
-              )}
-            </ThumbnailContainer>
-            <div className="info">
-              <h3 title={video.file_name}>{video.file_name}</h3>
-              <div className="meta">
-                {formatDuration(video.duration)}
-              </div>
-              <div className="tags">
-                {video.tags.map(tag => (
-                  <Tag 
-                    key={tag.id}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onTagClick?.(tag);
+    <>
+      <Grid>
+        {videos.map(video => {
+          const state = thumbnailStates[video.id] || { 
+            loading: true, 
+            error: false, 
+            retryCount: 0 
+          };
+          
+          const thumbnailUrl = `/api/videos/thumbnails/${video.thumbnail_id}`;
+          const imageUrl = state.error ? 
+            `${thumbnailUrl}?t=${Date.now()}` : 
+            thumbnailUrl;
+          
+          return (
+            <VideoCard key={video.id}>
+              <ThumbnailContainer>
+                {state.error ? (
+                  <LoadingPlaceholder>
+                    Loading...
+                  </LoadingPlaceholder>
+                ) : (
+                  <img 
+                    src={imageUrl}
+                    alt={video.file_name}
+                    onLoad={() => handleImageLoad(video.id, imageUrl)}
+                    onError={() => handleImageError(video.id)}
+                    onClick={() => handleVideoClick(video.id)}
+                    title="Click to play video"
+                    style={{ 
+                      opacity: state.loadedUrl ? 1 : 0,
+                      transition: 'opacity 0.3s'
                     }}
-                  >
-                    {tag.name}
-                  </Tag>
-                ))}
+                  />
+                )}
+              </ThumbnailContainer>
+              <div className="info">
+                <h3 
+                  title={video.file_name}
+                  onClick={() => setSelectedVideo(video)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  {video.file_name}
+                </h3>
+                <div className="meta">
+                  {formatDuration(video.duration)}
+                </div>
+                <div className="tags">
+                  {video.tags.map(tag => (
+                    <Tag 
+                      key={tag.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onTagClick?.(tag);
+                      }}
+                    >
+                      {tag.name}
+                    </Tag>
+                  ))}
+                </div>
               </div>
-            </div>
-          </VideoCard>
-        );
-      })}
-    </Grid>
+            </VideoCard>
+          );
+        })}
+      </Grid>
+      
+      {selectedVideo && (
+        <VideoDetail 
+          video={selectedVideo} 
+          onClose={() => setSelectedVideo(null)}
+          onPrevVideo={handlePrevVideo}
+          onNextVideo={handleNextVideo}
+          hasPrevVideo={videos.findIndex(v => v.id === selectedVideo.id) > 0}
+          hasNextVideo={videos.findIndex(v => v.id === selectedVideo.id) < videos.length - 1}
+        />
+      )}
+    </>
   );
 }; 
