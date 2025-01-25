@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import styled from 'styled-components';
 import { Video } from '../types/video';
 
@@ -230,6 +230,34 @@ export const VideoDetail: React.FC<Props> = ({
       }
     }
   };
+
+  // 키보드 이벤트 핸들러 추가
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      switch (e.key) {
+        case 'ArrowLeft':
+          if (hasPrevVideo && onPrevVideo) {
+            onPrevVideo();
+          }
+          break;
+        case 'ArrowRight':
+          if (hasNextVideo && onNextVideo) {
+            onNextVideo();
+          }
+          break;
+        case 'Escape':
+          onClose();
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    
+    // 컴포넌트 언마운트 시 이벤트 리스너 제거
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onPrevVideo, onNextVideo, onClose, hasPrevVideo, hasNextVideo]);
 
   return (
     <Overlay onClick={onClose}>

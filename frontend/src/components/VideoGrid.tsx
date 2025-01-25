@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { Video } from '../types/video';
 import { VideoDetail } from './VideoDetail';
@@ -117,22 +117,43 @@ interface ThumbnailState {
 interface Props {
   videos: Video[];
   onTagClick?: (tag: { id: number; name: string }) => void;
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  isLoading: boolean;
 }
 
-export const VideoGrid: React.FC<Props> = ({ videos, onTagClick }) => {
+export const VideoGrid: React.FC<Props> = ({ 
+  videos, 
+  onTagClick,
+  currentPage,
+  totalPages,
+  onPageChange,
+  isLoading
+}) => {
   const [thumbnailStates, setThumbnailStates] = useState<{ [key: number]: ThumbnailState }>({});
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
+  const [pendingTransition, setPendingTransition] = useState<'next' | 'prev' | null>(null);
+  const prevVideosRef = useRef<Video[]>([]);
 
-  // 컴포넌트 언마운트 시 타이머 정리
+  // 새 데이터가 로드되면 선택된 비디오 업데이트
   useEffect(() => {
-    return () => {
-      Object.values(thumbnailStates).forEach(state => {
-        if (state.retryTimer) {
-          clearTimeout(state.retryTimer);
-        }
-      });
-    };
-  }, [thumbnailStates]);
+    if (!isLoading && videos.length > 0 && !arraysEqual(videos, prevVideosRef.current)) {
+      if (pendingTransition === 'next') {
+        setSelectedVideo(videos[0]);  // 다음 페이지의 첫 번째 비디오
+      } else if (pendingTransition === 'prev') {
+        setSelectedVideo(videos[videos.length - 1]);  // 이전 페이지의 마지막 비디오
+      }
+      setPendingTransition(null);
+      prevVideosRef.current = videos;
+    }
+  }, [videos, isLoading, pendingTransition]);
+
+  // 배열 비교 헬퍼 함수
+  const arraysEqual = (a: Video[], b: Video[]) => {
+    if (a.length !== b.length) return false;
+    return a.every((video, index) => video.id === b[index].id);
+  };
 
   const handleImageLoad = (videoId: number, url: string) => {
     setThumbnailStates(prev => ({
@@ -226,6 +247,9 @@ export const VideoGrid: React.FC<Props> = ({ videos, onTagClick }) => {
       const currentIndex = videos.findIndex(v => v.id === selectedVideo.id);
       if (currentIndex > 0) {
         setSelectedVideo(videos[currentIndex - 1]);
+      } else if (currentPage > 1) {
+        setPendingTransition('prev');
+        onPageChange(currentPage - 1);
       }
     }
   };
@@ -235,6 +259,9 @@ export const VideoGrid: React.FC<Props> = ({ videos, onTagClick }) => {
       const currentIndex = videos.findIndex(v => v.id === selectedVideo.id);
       if (currentIndex < videos.length - 1) {
         setSelectedVideo(videos[currentIndex + 1]);
+      } else if (currentPage < totalPages) {
+        setPendingTransition('next');
+        onPageChange(currentPage + 1);
       }
     }
   };
@@ -308,12 +335,15 @@ export const VideoGrid: React.FC<Props> = ({ videos, onTagClick }) => {
       
       {selectedVideo && (
         <VideoDetail 
-          video={selectedVideo} 
-          onClose={() => setSelectedVideo(null)}
+          video={selectedVideo}
+          onClose={() => {
+            setSelectedVideo(null);
+            setPendingTransition(null);
+          }}
           onPrevVideo={handlePrevVideo}
           onNextVideo={handleNextVideo}
-          hasPrevVideo={videos.findIndex(v => v.id === selectedVideo.id) > 0}
-          hasNextVideo={videos.findIndex(v => v.id === selectedVideo.id) < videos.length - 1}
+          hasPrevVideo={videos.findIndex(v => v.id === selectedVideo.id) > 0 || currentPage > 1}
+          hasNextVideo={videos.findIndex(v => v.id === selectedVideo.id) < videos.length - 1 || currentPage < totalPages}
         />
       )}
     </>

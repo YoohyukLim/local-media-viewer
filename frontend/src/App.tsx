@@ -144,11 +144,12 @@ function App() {
       }
       const response = await fetch(url);
       const data: PageResponse<Video> = await response.json();
+      
+      setMainLoading(false);
       setVideos(data.items);
       setTotalPages(data.pages);
     } catch (error) {
       console.error('Failed to fetch videos:', error);
-    } finally {
       setMainLoading(false);
     }
   };
@@ -209,14 +210,14 @@ function App() {
               </div>
             </SelectedTagsHeader>
           )}
-          {mainLoading ? (
-            <MainLoading>Loading...</MainLoading>
-          ) : (
-            <VideoGrid 
-              videos={videos} 
-              onTagClick={handleTagClick}
-            />
-          )}
+          <VideoGrid 
+            videos={videos}
+            onTagClick={handleTagClick}
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            isLoading={mainLoading}
+          />
           <Pagination
             currentPage={page}
             totalPages={totalPages}
