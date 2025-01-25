@@ -4,20 +4,48 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from ..database import get_db
 from ..services.scanner import scan_videos, get_videos
-from ..services.tags import search_videos_by_tags, get_all_tags, add_video_tag, remove_video_tag
+from ..services.tags import get_all_tags, add_video_tag, remove_video_tag
 from ..config import settings
 from ..models.video import Video
+from ..models.tag import Tag
 from fastapi.responses import FileResponse
 import os
 import subprocess
 import platform
 from ..logger import logger
+from sqlalchemy import select, and_
+from sqlalchemy.sql import func
+import math
+from enum import Enum
+from datetime import datetime
 
 router = APIRouter()
 
 # 요청 모델 추가
 class AddTagRequest(BaseModel):
     tag_name: str
+
+class TagSearchMode(str, Enum):
+    OR = "or"
+    AND = "and"
+
+class TagResponse(BaseModel):
+    id: int
+    name: str
+
+class VideoResponse(BaseModel):
+    id: int
+    file_path: str
+    file_name: str
+    thumbnail_id: str
+    duration: float
+    category: str | None
+    created_at: datetime
+    updated_at: datetime
+    tags: List[TagResponse]
+
+    class Config:
+        from_attributes = True
 
 @router.post("/scan", summary="비디오 파일 스캔", 
     description="설정된 디렉토리들에서 비디오 파일들을 스캔하여 DB에 저장합니다.")
@@ -34,18 +62,49 @@ def scan_directory(db: Session = Depends(get_db)):
 def list_videos(
     page: int = Query(1, ge=1),
     size: int = Query(25, ge=1, le=100),
+    tag_ids: Optional[List[int]] = Query(None),
+    tag_mode: TagSearchMode = Query(TagSearchMode.OR),
     db: Session = Depends(get_db)
 ):
-    """
-    DB에 저장된 비디오 파일 정보를 페이징하여 반환합니다.
-    - page: 페이지 번호 (1부터 시작)
-    - size: 페이지당 아이템 수 (1~100)
-    """
-    videos, total = get_videos(db, page=page, page_size=size)
-    total_pages = (total + size - 1) // size  # 전체 페이지 수 계산
+    offset = (page - 1) * size
+    
+    # 태그 검색 조건 구성
+    query = db.query(Video)
+    if tag_ids:
+        if tag_mode == TagSearchMode.OR:
+            # OR 검색: 지정된 태그 중 하나라도 있는 비디오
+            query = query.filter(Video.tags.any(Tag.id.in_(tag_ids)))
+        else:
+            # AND 검색: 지정된 태그를 모두 가진 비디오
+            for tag_id in tag_ids:
+                query = query.filter(Video.tags.any(Tag.id == tag_id))
+    
+    # 전체 개수 조회
+    total = query.count()
+    
+    # 페이지네이션 적용
+    videos = query.offset(offset).limit(size).all()
+    
+    total_pages = (total + size - 1) // size
     
     return {
-        "items": videos,
+        "items": [
+            {
+                "id": video.id,
+                "file_path": video.file_path,
+                "file_name": video.file_name,
+                "thumbnail_id": video.thumbnail_id,
+                "duration": video.duration,
+                "category": video.category,
+                "created_at": video.created_at,
+                "updated_at": video.updated_at,
+                "tags": [
+                    {"id": tag.id, "name": tag.name} 
+                    for tag in video.tags
+                ]
+            }
+            for video in videos
+        ],
         "total": total,
         "page": page,
         "size": size,
@@ -57,27 +116,6 @@ def list_videos(
 def list_tags(db: Session = Depends(get_db)):
     """모든 태그 목록을 반환합니다."""
     return get_all_tags(db)
-
-@router.get("/search", summary="태그로 비디오 검색",
-    description="지정된 태그들을 포함하는 비디오를 검색합니다.")
-def search_videos(
-    tags: List[str] = Query(..., description="검색할 태그 목록"),
-    require_all: bool = Query(False, description="모든 태그를 포함해야 하는지 여부"),
-    page: int = Query(1, ge=1, description="페이지 번호"),
-    page_size: int = Query(10, ge=1, le=100, description="페이지당 아이템 수"),
-    db: Session = Depends(get_db)
-):
-    """태그로 비디오를 검색합니다."""
-    videos, total = search_videos_by_tags(db, tags, require_all, page, page_size)
-    total_pages = (total + page_size - 1) // page_size
-    
-    return {
-        "total_items": total,
-        "total_pages": total_pages,
-        "current_page": page,
-        "page_size": page_size,
-        "items": videos
-    }
 
 @router.post("/{video_id}/tags", 
     summary="비디오에 태그 추가",
