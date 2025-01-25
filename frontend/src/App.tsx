@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import styled from 'styled-components';
 import { VideoGrid } from './components/VideoGrid';
 import { Pagination } from './components/Pagination';
@@ -112,6 +112,7 @@ function App() {
   const [sidebarWidth, setSidebarWidth] = useState(240);
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [searchMode, setSearchMode] = useState<'AND' | 'OR'>('AND');
+  const isInitialized = useRef(false);
   
   const handleTagClick = (tag: Tag) => {
     setPage(1);
@@ -131,16 +132,20 @@ function App() {
 
   const toggleSearchMode = () => {
     setPage(1);
-    setSearchMode(prev => prev === 'AND' ? 'OR' : 'AND');
+    setSearchMode(prev => {
+      const newMode = prev === 'AND' ? 'OR' : 'AND';
+      fetchVideos(1, selectedTags.map(tag => tag.id), newMode);
+      return newMode;
+    });
   };
 
-  const fetchVideos = async (pageNum: number, tagIds?: number[]) => {
+  const fetchVideos = async (pageNum: number, tagIds?: number[], mode: 'AND' | 'OR' = 'AND') => {
     try {
       setMainLoading(true);
       let url = `/api/videos/list?page=${pageNum}&size=25`;
       if (tagIds && tagIds.length > 0) {
         url += tagIds.map(id => `&tag_ids=${id}`).join('');
-        url += `&tag_mode=${searchMode.toLowerCase()}`;
+        url += `&tag_mode=${mode.toLowerCase()}`;
       }
       const response = await fetch(url);
       const data: PageResponse<Video> = await response.json();
@@ -154,25 +159,33 @@ function App() {
     }
   };
 
-  const fetchTags = async () => {
-    try {
-      const response = await fetch('/api/videos/tags');
-      const data: Tag[] = await response.json();
-      setTags(data);
-    } catch (error) {
-      console.error('Failed to fetch tags:', error);
-    } finally {
-      setInitialLoading(false);
-    }
-  };
-  
   useEffect(() => {
-    fetchVideos(page, selectedTags.map(tag => tag.id));
-  }, [page, selectedTags, searchMode]);
+    const initializeData = async () => {
+      if (isInitialized.current) return;
+      isInitialized.current = true;
+
+      try {
+        setInitialLoading(true);
+        const tagsResponse = await fetch('/api/videos/tags');
+        const tagsData: Tag[] = await tagsResponse.json();
+        setTags(tagsData);
+
+        await fetchVideos(1, [], 'AND');
+      } catch (error) {
+        console.error('Failed to initialize data:', error);
+      } finally {
+        setInitialLoading(false);
+      }
+    };
+
+    initializeData();
+  }, []);
 
   useEffect(() => {
-    fetchTags();
-  }, []);
+    if (!initialLoading && isInitialized.current) {
+      fetchVideos(page, selectedTags.map(tag => tag.id), searchMode);
+    }
+  }, [page, selectedTags]);
   
   if (initialLoading) {
     return <Loading>Loading...</Loading>;
