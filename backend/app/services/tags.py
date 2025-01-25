@@ -2,12 +2,9 @@ from sqlalchemy.orm import Session
 from app.models.tag import Tag
 from app.models.video import Video
 from typing import List, Tuple
-from ..config import Settings
+from ..config import settings  # 싱글톤 settings import
 from ..logger import logger
 import os
-
-# 전역 settings 객체 초기화
-settings = Settings()
 
 def update_info_file_tags(file_path: str, tags_to_add: List[str] = None, tags_to_remove: List[str] = None):
     """비디오의 .info 파일의 태그를 수정합니다."""

@@ -7,21 +7,13 @@ from .metadata import (
     get_video_duration, is_video_modified, 
     update_video_metadata
 )
-from ..config import Settings
+from ..config import settings  # 싱글톤 settings import
 from typing import List
 from .tags import cleanup_unused_tags
 from ..logger import logger
 from .thumbnail_worker import get_thumbnail_worker
 import hashlib
 from datetime import datetime
-
-# 전역 settings 객체 초기화
-settings = Settings()
-
-def reload_settings() -> None:
-    """설정 파일을 다시 로드합니다."""
-    global settings
-    settings = Settings()
 
 def is_file_in_video_directories(file_path: str, video_directories: list[str]) -> bool:
     """파일이 설정된 비디오 디렉토리 중 하나에 포함되어 있는지 확인합니다."""
@@ -61,7 +53,6 @@ def scan_videos(db: Session):
     """비디오 파일들을 스캔하여 DB에 저장합니다."""
     try:
         logger.info("Starting video scan...")
-        reload_settings()
         
         # 썸네일 워커 시작
         thumbnail_worker = get_thumbnail_worker(settings)

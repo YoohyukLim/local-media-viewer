@@ -1,10 +1,22 @@
 import os
 import yaml
-import argparse
 from pathlib import Path
 
 class Settings:
-    def __init__(self, config_path: str | None = None):
+    _instance = None
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance.config_path = None
+        return cls._instance
+    
+    def __init__(self):
+        # __new__에서 이미 초기화된 경우 __init__은 건너뜀
+        pass
+    
+    def init_settings(self, config_path: str | None = None):
+        """설정을 초기화합니다."""
         self.config_path = config_path
         self.reload()
     
@@ -14,11 +26,6 @@ class Settings:
         if self.config_path is None:
             config_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config")
             self.config_path = os.path.join(config_dir, "config.yaml")
-        
-        # config 디렉토리가 없으면 생성
-        config_dir = os.path.dirname(self.config_path)
-        if not os.path.exists(config_dir):
-            os.makedirs(config_dir)
         
         # 설정 파일이 없으면 기본 설정으로 생성
         if not os.path.exists(self.config_path):
@@ -36,7 +43,7 @@ class Settings:
                     "max_workers": 6
                 }
             }
-            os.makedirs(config_dir, exist_ok=True)
+            os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
             with open(self.config_path, "w", encoding="utf-8") as f:
                 yaml.dump(default_config, f, allow_unicode=True)
 
@@ -59,5 +66,5 @@ class Settings:
         """썸네일 파일의 전체 경로를 반환합니다."""
         return os.path.join(self.THUMBNAIL_DIR, f"{thumbnail_id}{self.THUMBNAIL_EXT}")
 
-# 전역 설정 객체는 main.py에서 초기화
-settings = None 
+# 전역 설정 객체
+settings = Settings() 

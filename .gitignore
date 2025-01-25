@@ -70,3 +70,5 @@ frontend/.env.production.local
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts 
+
+tmp/
