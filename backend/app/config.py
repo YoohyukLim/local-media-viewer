@@ -12,15 +12,19 @@ class Settings:
             config = yaml.safe_load(f)
         
         self.VIDEO_DIRECTORIES = config["video_directories"]
+        
+        # DB 설정
+        self.DATABASE_PATH = config["database"]["path"]
+        
+        # 썸네일 설정
         thumbnails = config["thumbnails"]
         self.THUMBNAIL_DIR = thumbnails["directory"]
         self.THUMBNAIL_EXT = thumbnails["extension"]
-        # 새로운 썸네일 설정 추가
         self.THUMBNAIL_DURATION = float(thumbnails.get("duration", 3.0))
         self.THUMBNAIL_FPS = float(thumbnails.get("fps", 10.0))
         self.THUMBNAIL_MAX_SIZE = int(thumbnails.get("max_size", 480))
-        self.THUMBNAIL_MAX_WORKERS = int(thumbnails.get("max_workers", 4))  # 기본값 4
-    
+        self.THUMBNAIL_MAX_WORKERS = int(thumbnails.get("max_workers", 4))
+
     def get_thumbnail_path(self, thumbnail_id: str) -> str:
         """썸네일 파일의 전체 경로를 반환합니다."""
         return os.path.join(self.THUMBNAIL_DIR, f"{thumbnail_id}{self.THUMBNAIL_EXT}")

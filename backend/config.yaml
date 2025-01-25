@@ -2,6 +2,10 @@
 video_directories:
   - "D:/videos"  # 실제 경로로 수정해주세요
 
+# DB 설정
+database:
+  path: "D:/videos/videos.db"  # DB 파일 경로
+
 # 썸네일 설정
 thumbnails:
   directory: "D:/videos/thumbnails"  # 썸네일이 저장될 절대 경로
