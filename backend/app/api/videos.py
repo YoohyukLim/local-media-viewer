@@ -47,6 +47,9 @@ class VideoResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class TagCreate(BaseModel):
+    name: str
+
 @router.post("/scan", summary="비디오 파일 스캔", 
     description="설정된 디렉토리들에서 비디오 파일들을 스캔하여 DB에 저장합니다.")
 def scan_directory(db: Session = Depends(get_db)):
@@ -117,25 +120,91 @@ def list_tags(db: Session = Depends(get_db)):
     """모든 태그 목록을 반환합니다."""
     return get_all_tags(db)
 
-@router.post("/{video_id}/tags", 
+@router.post("/tags", 
+    response_model=TagResponse,
+    summary="태그 생성",
+    description="새로운 태그를 생성하거나, 이미 존재하는 태그의 정보를 반환합니다.")
+async def create_tag(tag: TagCreate):
+    """태그를 생성하고 ID를 반환합니다."""
+    db = get_db()
+    cursor = db.cursor()
+    
+    try:
+        cursor.execute(
+            "SELECT id, name FROM tags WHERE name = ?",
+            (tag.name,)
+        )
+        existing_tag = cursor.fetchone()
+        
+        if existing_tag:
+            return {"id": existing_tag[0], "name": existing_tag[1]}
+        
+        cursor.execute(
+            "INSERT INTO tags (name) VALUES (?)",
+            (tag.name,)
+        )
+        db.commit()
+        
+        new_tag_id = cursor.lastrowid
+        return {"id": new_tag_id, "name": tag.name}
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cursor.close()
+
+@router.post("/videos/{video_id}/tags", 
+    response_model=TagResponse,
     summary="비디오에 태그 추가",
-    description="지정된 비디오에 태그를 추가합니다.")
-def add_tag(
-    video_id: int,
-    tag_request: AddTagRequest,
-    db: Session = Depends(get_db)
+    description="비디오에 새로운 태그를 추가합니다. 태그가 존재하지 않으면 새로 생성합니다.")
+async def add_video_tag(
+    video_id: int, 
+    tag: TagCreate
 ):
     """비디오에 태그를 추가합니다."""
-    video, added = add_video_tag(db, video_id, tag_request.tag_name)
-    if not video:
-        raise HTTPException(status_code=404, detail="Video not found")
+    db = get_db()
+    cursor = db.cursor()
     
-    return {
-        "message": "Tag added successfully" if added else "Tag already exists",
-        "video_id": video_id,
-        "tag_name": tag_request.tag_name,
-        "added": added
-    }
+    try:
+        # 먼저 태그 생성 또는 조회
+        cursor.execute(
+            "SELECT id, name FROM tags WHERE name = ?",
+            (tag.name,)
+        )
+        existing_tag = cursor.fetchone()
+        
+        if existing_tag:
+            tag_id = existing_tag[0]
+        else:
+            cursor.execute(
+                "INSERT INTO tags (name) VALUES (?)",
+                (tag.name,)
+            )
+            tag_id = cursor.lastrowid
+        
+        # 비디오-태그 연결이 이미 존재하는지 확인
+        cursor.execute(
+            "SELECT 1 FROM video_tags WHERE video_id = ? AND tag_id = ?",
+            (video_id, tag_id)
+        )
+        if cursor.fetchone():
+            return {"id": tag_id, "name": tag.name}
+        
+        # 비디오-태그 연결
+        cursor.execute(
+            "INSERT INTO video_tags (video_id, tag_id) VALUES (?, ?)",
+            (video_id, tag_id)
+        )
+        db.commit()
+        
+        return {"id": tag_id, "name": tag.name}
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cursor.close()
 
 @router.delete("/{video_id}/tags/{tag_id}",
     summary="비디오에서 태그 제거",
