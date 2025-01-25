@@ -1,6 +1,11 @@
 import os
 import yaml
+import logging
 from pathlib import Path
+from typing import Dict
+
+# 로거 설정
+logger = logging.getLogger(__name__)
 
 class Settings:
     _instance = None
@@ -61,10 +66,64 @@ class Settings:
         self.THUMBNAIL_FPS = float(thumbnails.get("fps", 10.0))
         self.THUMBNAIL_MAX_SIZE = int(thumbnails.get("max_size", 480))
         self.THUMBNAIL_MAX_WORKERS = int(thumbnails.get("max_workers", 4))
+        
+        # 컨테이너 모드 설정
+        container_config = config.get("container", {})
+        self.CONTAINER_MODE = bool(container_config.get("mode", False))
+        self.PLAYER_PIPE = container_config.get("player_pipe", "/videos/data/player.pipe")
+        self.COMPOSE_PATH = container_config.get("compose_path", "/videos/data/docker-compose.yml")
+
+        # Docker Compose 볼륨 마운트 정보 로드
+        self.volume_mounts = {}
+        if self.CONTAINER_MODE and os.path.exists(self.COMPOSE_PATH):
+            logger.info(f"Loading Docker Compose file: {self.COMPOSE_PATH}")
+            try:
+                with open(self.COMPOSE_PATH, 'r', encoding='utf-8') as f:
+                    compose_config = yaml.safe_load(f)
+                
+                if compose_config and 'services' in compose_config:
+                    backend_config = compose_config['services'].get('backend', {})
+                    volumes = backend_config.get('volumes', [])
+                    
+                    for volume in volumes:
+                        if isinstance(volume, dict) and volume.get('type') == 'bind':
+                            source = volume.get('source', '').replace('\\', '/')
+                            target = volume.get('target', '').replace('\\', '/')
+                            if source and target:
+                                self.volume_mounts[target] = source
+                
+                logger.info(f"Loaded volume mounts: {self.volume_mounts}")
+            except Exception as e:
+                logger.error(f"Failed to load docker-compose.yml: {e}")
+                self.volume_mounts = {}
 
     def get_thumbnail_path(self, thumbnail_id: str) -> str:
         """썸네일 파일의 전체 경로를 반환합니다."""
         return os.path.join(self.THUMBNAIL_DIR, f"{thumbnail_id}{self.THUMBNAIL_EXT}")
+
+    def get_host_path(self, container_path: str) -> str:
+        """컨테이너 내부 경로를 호스트 경로로 변환"""
+        if not self.CONTAINER_MODE:
+            return container_path
+            
+        container_path = container_path.replace('\\', '/')
+        for target, source in self.volume_mounts.items():
+            if container_path.startswith(target):
+                return container_path.replace(target, source)
+        
+        return container_path
+    
+    def get_container_path(self, host_path: str) -> str:
+        """호스트 경로를 컨테이너 내부 경로로 변환"""
+        if not self.CONTAINER_MODE:
+            return host_path
+            
+        host_path = host_path.replace('\\', '/')
+        for target, source in self.volume_mounts.items():
+            if host_path.startswith(source):
+                return host_path.replace(source, target)
+        
+        return host_path
 
 # 전역 설정 객체
 settings = Settings() 

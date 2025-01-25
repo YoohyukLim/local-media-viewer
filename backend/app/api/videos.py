@@ -94,24 +94,29 @@ def list_videos(
     
     total_pages = (total + size - 1) // size
     
+    # 비디오 목록 변환
+    items = []
+    for video in videos:
+        # 컨테이너 모드일 때 파일 경로를 호스트 경로로 변환
+        file_path = settings.get_host_path(video.file_path) if settings.CONTAINER_MODE else video.file_path
+        
+        items.append({
+            "id": video.id,
+            "file_path": file_path,
+            "file_name": video.file_name,
+            "thumbnail_id": video.thumbnail_id,
+            "duration": video.duration,
+            "category": video.category,
+            "created_at": video.created_at,
+            "updated_at": video.updated_at,
+            "tags": [
+                {"id": tag.id, "name": tag.name} 
+                for tag in video.tags
+            ]
+        })
+    
     return {
-        "items": [
-            {
-                "id": video.id,
-                "file_path": video.file_path,
-                "file_name": video.file_name,
-                "thumbnail_id": video.thumbnail_id,
-                "duration": video.duration,
-                "category": video.category,
-                "created_at": video.created_at,
-                "updated_at": video.updated_at,
-                "tags": [
-                    {"id": tag.id, "name": tag.name} 
-                    for tag in video.tags
-                ]
-            }
-            for video in videos
-        ],
+        "items": items,
         "total": total,
         "page": page,
         "size": size,
@@ -258,35 +263,32 @@ async def get_thumbnail(thumbnail_id: str):
     description="로컬 시스템에서 비디오 파일을 재생합니다.")
 async def play_video(video_id: int, db: Session = Depends(get_db)):
     """비디오 파일을 시스템 기본 플레이어로 재생합니다."""
-    # 비디오 정보 조회
     video = db.query(Video).filter(Video.id == video_id).first()
     if not video:
-        logger.error(f"Video not found: {video_id}")
         raise HTTPException(status_code=404, detail="Video not found")
-    
-    # 파일 존재 여부 확인
-    if not os.path.exists(video.file_path):
-        logger.error(f"Video file not found: {video.file_path}")
-        raise HTTPException(
-            status_code=404, 
-            detail=f"Video file not found: {video.file_path}"
-        )
     
     try:
         logger.info(f"Playing video: {video.file_path}")
-        system = platform.system()
-        
-        if system == "Windows":
-            subprocess.Popen(['cmd', '/c', 'start', '', video.file_path], shell=True)
-        elif system == "Darwin":  # macOS
-            subprocess.Popen(['open', video.file_path])
-        else:  # Linux
-            subprocess.Popen(['xdg-open', video.file_path])
+        if settings.CONTAINER_MODE:
+            # 컨테이너 내부 경로를 호스트 경로로 변환
+            host_path = settings.get_host_path(video.file_path)
+            logger.info(f"Converted path: {host_path}")
             
-        return {"message": "Video playback started", "file_path": video.file_path}
-        
+            if not os.path.exists(settings.PLAYER_PIPE):
+                raise HTTPException(
+                    status_code=500, 
+                    detail="Player pipe not found"
+                )
+            
+            with open(settings.PLAYER_PIPE, 'w') as pipe:
+                pipe.write(host_path + '\n')
+                pipe.flush()
+        else:
+            # 로컬 모드에서는 기존 방식대로 직접 실행
+            os.startfile(video.file_path)
+            
+        return {"status": "success"}
     except Exception as e:
-        logger.error(f"Failed to play video: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to play video: {str(e)}"

@@ -99,8 +99,12 @@ class PlayerMonitor:
                             file_path = pipe.readline().strip()
                             if file_path:
                                 self.open_file(file_path)
+                                break
                             last_position = pipe.tell()
                             time.sleep(0.1)
+                    # 파일 삭제 후 새로 생성
+                    os.remove(self.pipe_path)
+                    self.ensure_pipe()
                 except KeyboardInterrupt:
                     logger.info("Received shutdown signal")
                     break
