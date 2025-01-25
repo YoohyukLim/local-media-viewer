@@ -7,7 +7,7 @@ const MAX_WIDTH = 400;
 
 const Sidebar = styled.div<{ width: number }>`
   width: ${props => props.width}px;
-  padding: 1rem;
+  padding: 1rem 0;
   background: white;
   border-right: 1px solid #ddd;
   height: 100vh;
@@ -18,28 +18,15 @@ const Sidebar = styled.div<{ width: number }>`
   
   /* Firefox */
   scrollbar-width: none;
-  &:hover:active {
-    scrollbar-width: thin;
-    scrollbar-color: #999 transparent;
-  }
   
   /* Chrome, Safari, Edge */
   &::-webkit-scrollbar {
-    width: 0;
+    display: none;
   }
   
-  &:hover:active::-webkit-scrollbar {
-    width: 6px;
-  }
-  
-  &::-webkit-scrollbar-thumb {
-    background-color: #999;
-    border-radius: 3px;
-    
-    &:hover {
-      background-color: #666;
-    }
-  }
+  /* 스크롤바 완전히 숨기기 */
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
 `;
 
 const Resizer = styled.div`
@@ -71,17 +58,24 @@ const Resizer = styled.div`
 
 const Title = styled.h2`
   font-size: 1.2rem;
-  margin: 0 0 1rem 0;
+  margin: 0 1rem 1rem 1rem;
   color: #333;
 `;
 
+const TagsContainer = styled.div`
+  padding: 0 1rem;
+  display: flex;
+  flex-direction: column;
+`;
+
 const SearchInput = styled.input`
-  width: 100%;
-  padding: 0.5rem;
+  width: calc(100% - 1rem);
+  padding: 0.35rem 0.5rem;
+  margin: 0.2rem 0;
   border: 1px solid #ddd;
   border-radius: 4px;
-  margin-bottom: 1rem;
   font-size: 0.9rem;
+  box-sizing: border-box;
   
   &:focus {
     outline: none;
@@ -104,6 +98,7 @@ const pastelColors = [
 ];
 
 const TagItem = styled.div<{ colorIndex: number }>`
+  width: calc(100% - 1rem);
   padding: 0.35rem 0.5rem;
   margin: 0.2rem 0;
   background: ${props => pastelColors[props.colorIndex]};
@@ -111,6 +106,7 @@ const TagItem = styled.div<{ colorIndex: number }>`
   cursor: pointer;
   transition: background-color 0.2s;
   font-size: 0.9rem;
+  box-sizing: border-box;
   
   /* 긴 텍스트 처리 */
   word-break: break-all;
@@ -169,21 +165,23 @@ export const TagList: React.FC<Props> = ({ tags, onTagClick, onWidthChange }) =>
   return (
     <Sidebar width={width}>
       <Title>태그 목록</Title>
-      <SearchInput
-        type="text"
-        placeholder="태그 검색..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-      />
-      {filteredTags.map((tag, index) => (
-        <TagItem 
-          key={tag.id}
-          colorIndex={index % pastelColors.length}
-          onClick={() => onTagClick?.(tag)}
-        >
-          {tag.name}
-        </TagItem>
-      ))}
+      <TagsContainer>
+        <SearchInput
+          type="text"
+          placeholder="태그 검색..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        {filteredTags.map((tag, index) => (
+          <TagItem 
+            key={tag.id}
+            colorIndex={index % pastelColors.length}
+            onClick={() => onTagClick?.(tag)}
+          >
+            {tag.name}
+          </TagItem>
+        ))}
+      </TagsContainer>
       <Resizer onMouseDown={startResizing} />
     </Sidebar>
   );

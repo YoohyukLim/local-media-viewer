@@ -22,6 +22,79 @@ const Loading = styled.div`
   color: #666;
 `;
 
+const SelectedTagsHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+`;
+
+const SelectedTags = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  flex: 1;
+`;
+
+const SelectedTag = styled.div`
+  display: flex;
+  align-items: center;
+  background: #e9ecef;
+  padding: 0.35rem 0.7rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  
+  button {
+    background: none;
+    border: none;
+    margin-left: 0.5rem;
+    cursor: pointer;
+    padding: 0;
+    font-size: 1.1rem;
+    color: #666;
+    display: flex;
+    align-items: center;
+    
+    &:hover {
+      color: #333;
+    }
+  }
+`;
+
+const ClearButton = styled.button`
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.9rem;
+  color: #666;
+  cursor: pointer;
+  margin-left: 1rem;
+  white-space: nowrap;
+  
+  &:hover {
+    background: #f8f9fa;
+    color: #333;
+  }
+`;
+
+const ModeToggleButton = styled.button<{ mode: 'AND' | 'OR' }>`
+  background: ${props => props.mode === 'AND' ? '#e7f5ff' : '#fff4e6'};
+  border: 1px solid ${props => props.mode === 'AND' ? '#74c0fc' : '#ffd8a8'};
+  border-radius: 4px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.9rem;
+  color: ${props => props.mode === 'AND' ? '#1c7ed6' : '#fd7e14'};
+  cursor: pointer;
+  margin-left: 1rem;
+  white-space: nowrap;
+  font-weight: 500;
+  
+  &:hover {
+    background: ${props => props.mode === 'AND' ? '#d0ebff' : '#ffe8cc'};
+  }
+`;
+
 function App() {
   const [videos, setVideos] = useState<Video[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -29,13 +102,36 @@ function App() {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(240);
+  const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
+  const [searchMode, setSearchMode] = useState<'AND' | 'OR'>('AND');
   
-  const fetchVideos = async (pageNum: number) => {
+  const handleTagClick = (tag: Tag) => {
+    setSelectedTags(prev => {
+      const isSelected = prev.some(t => t.id === tag.id);
+      if (isSelected) {
+        return prev.filter(t => t.id !== tag.id);
+      }
+      return [...prev, tag];
+    });
+  };
+
+  const removeTag = (tagId: number) => {
+    setSelectedTags(prev => prev.filter(tag => tag.id !== tagId));
+  };
+
+  const toggleSearchMode = () => {
+    setSearchMode(prev => prev === 'AND' ? 'OR' : 'AND');
+  };
+
+  const fetchVideos = async (pageNum: number, tagIds?: number[]) => {
     try {
       setLoading(true);
-      const response = await fetch(
-        `/api/videos/list?page=${pageNum}&size=25`
-      );
+      let url = `/api/videos/list?page=${pageNum}&size=25`;
+      if (tagIds && tagIds.length > 0) {
+        url += tagIds.map(id => `&tag_ids=${id}`).join('');
+        url += `&tag_mode=${searchMode.toLowerCase()}`;
+      }
+      const response = await fetch(url);
       const data: PageResponse<Video> = await response.json();
       setVideos(data.items);
       setTotalPages(data.pages);
@@ -57,8 +153,8 @@ function App() {
   };
   
   useEffect(() => {
-    fetchVideos(page);
-  }, [page]);
+    fetchVideos(page, selectedTags.map(tag => tag.id));
+  }, [page, selectedTags, searchMode]);
 
   useEffect(() => {
     fetchTags();
@@ -72,11 +168,34 @@ function App() {
     <>
       <TagList 
         tags={tags}
-        onTagClick={(tag) => console.log('Tag clicked:', tag)}
+        onTagClick={handleTagClick}
         onWidthChange={setSidebarWidth}
       />
       <Container sidebarWidth={sidebarWidth}>
         <MainContent>
+          {selectedTags.length > 0 && (
+            <SelectedTagsHeader>
+              <SelectedTags>
+                {selectedTags.map(tag => (
+                  <SelectedTag key={tag.id}>
+                    {tag.name}
+                    <button onClick={() => removeTag(tag.id)}>×</button>
+                  </SelectedTag>
+                ))}
+              </SelectedTags>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <ModeToggleButton 
+                  mode={searchMode}
+                  onClick={toggleSearchMode}
+                >
+                  {searchMode}
+                </ModeToggleButton>
+                <ClearButton onClick={() => setSelectedTags([])}>
+                  초기화
+                </ClearButton>
+              </div>
+            </SelectedTagsHeader>
+          )}
           <VideoGrid videos={videos} />
           <Pagination
             currentPage={page}
