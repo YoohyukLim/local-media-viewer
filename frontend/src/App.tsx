@@ -22,13 +22,6 @@ const Loading = styled.div`
   color: #666;
 `;
 
-const MainLoading = styled.div`
-  text-align: center;
-  padding: 2rem;
-  font-size: 1.2rem;
-  color: #666;
-`;
-
 const SelectedTagsHeader = styled.div`
   display: flex;
   justify-content: space-between;
@@ -185,7 +178,7 @@ function App() {
     if (!initialLoading && isInitialized.current) {
       fetchVideos(page, selectedTags.map(tag => tag.id), searchMode);
     }
-  }, [page, selectedTags]);
+  }, [page, selectedTags, initialLoading, searchMode]);
   
   if (initialLoading) {
     return <Loading>Loading...</Loading>;

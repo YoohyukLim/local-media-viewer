@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { Video } from '../types/video';
-import type { Tag } from '../types/video';
 import { VideoDetail } from './VideoDetail';
 
 const Grid = styled.div`
@@ -94,7 +93,7 @@ const VideoCard = styled.div<{ isSelected?: boolean }>`
   }
 `;
 
-const Tag = styled.span`
+const TagItem = styled.span`
   background: #e9ecef;
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
@@ -370,7 +369,7 @@ export const VideoGrid: React.FC<Props> = ({
                 </div>
                 <div className="tags" onClick={e => e.stopPropagation()}>
                   {video.tags.map(tag => (
-                    <Tag 
+                    <TagItem 
                       key={tag.id}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -378,7 +377,7 @@ export const VideoGrid: React.FC<Props> = ({
                       }}
                     >
                       {tag.name}
-                    </Tag>
+                    </TagItem>
                   ))}
                 </div>
               </div>

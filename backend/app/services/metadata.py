@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from .tags import update_video_tags
 from typing import List
 from ..logger import logger
+import json
 
 def get_video_duration(video_path: str) -> float:
     """비디오 파일의 길이를 초 단위로 반환합니다."""
@@ -70,4 +71,35 @@ def update_video_metadata(video, file_path: str, base_dir: str, db: Session):
     category, tag_names = read_video_metadata(file_path, base_dir)
     if category is not None:
         video.category = category
-    update_video_tags(db, video, tag_names) 
+    update_video_tags(db, video, tag_names)
+
+def update_video_info(video_path: str, updates: dict):
+    """비디오의 info 파일을 업데이트합니다."""
+    info_path = f"{os.path.splitext(video_path)[0]}.info"
+    
+    try:
+        # 기존 info 파일 읽기
+        lines = []
+        if os.path.exists(info_path):
+            with open(info_path, 'r', encoding='utf-8') as f:
+                lines = [line.strip() for line in f.readlines()]
+        
+        # 카테고리와 태그 라인 필터링
+        lines = [line for line in lines if not (line.startswith('!') or line.startswith('#'))]
+        
+        # 카테고리 추가 (있는 경우)
+        if 'category' in updates:
+            lines.insert(0, f"!{updates['category']}")
+        
+        # 태그 추가 (# prefix 사용)
+        if 'tags' in updates:
+            for tag in updates['tags']:
+                lines.append(f"#{tag['name']}")
+        
+        # info 파일 저장
+        with open(info_path, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(lines))
+            
+    except Exception as e:
+        logger.error(f"Failed to update info file for {video_path}: {str(e)}")
+        raise 

@@ -18,6 +18,7 @@ from sqlalchemy.sql import func
 import math
 from enum import Enum
 from datetime import datetime, timedelta
+from ..services.metadata import update_video_info
 
 router = APIRouter()
 
@@ -49,6 +50,9 @@ class VideoResponse(BaseModel):
 
 class TagCreate(BaseModel):
     name: str
+
+class UpdateVideoTags(BaseModel):
+    tag_ids: List[int]
 
 @router.post("/scan", summary="비디오 파일 스캔", 
     description="설정된 디렉토리들에서 비디오 파일들을 스캔하여 DB에 저장합니다.")
@@ -124,37 +128,27 @@ def list_tags(db: Session = Depends(get_db)):
     response_model=TagResponse,
     summary="태그 생성",
     description="새로운 태그를 생성하거나, 이미 존재하는 태그의 정보를 반환합니다.")
-async def create_tag(tag: TagCreate):
+async def create_tag(tag: TagCreate, db: Session = Depends(get_db)):
     """태그를 생성하고 ID를 반환합니다."""
-    db = get_db()
-    cursor = db.cursor()
-    
     try:
-        cursor.execute(
-            "SELECT id, name FROM tags WHERE name = ?",
-            (tag.name,)
-        )
-        existing_tag = cursor.fetchone()
-        
+        # 이미 존재하는 태그 확인
+        existing_tag = db.query(Tag).filter(Tag.name == tag.name).first()
         if existing_tag:
-            return {"id": existing_tag[0], "name": existing_tag[1]}
+            return {"id": existing_tag.id, "name": existing_tag.name}
         
-        cursor.execute(
-            "INSERT INTO tags (name) VALUES (?)",
-            (tag.name,)
-        )
+        # 새 태그 생성
+        new_tag = Tag(name=tag.name)
+        db.add(new_tag)
         db.commit()
+        db.refresh(new_tag)
         
-        new_tag_id = cursor.lastrowid
-        return {"id": new_tag_id, "name": tag.name}
+        return {"id": new_tag.id, "name": new_tag.name}
         
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        cursor.close()
 
-@router.post("/videos/{video_id}/tags", 
+@router.post("/{video_id}/tags", 
     response_model=TagResponse,
     summary="비디오에 태그 추가",
     description="비디오에 새로운 태그를 추가합니다. 태그가 존재하지 않으면 새로 생성합니다.")
@@ -163,7 +157,7 @@ async def add_video_tag(
     tag: TagCreate
 ):
     """비디오에 태그를 추가합니다."""
-    db = get_db()
+    db = next(get_db())
     cursor = db.cursor()
     
     try:
@@ -296,4 +290,37 @@ async def play_video(video_id: int, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=500,
             detail=f"Failed to play video: {str(e)}"
-        ) 
+        )
+
+@router.put("/{video_id}/tags",
+    response_model=List[TagResponse],
+    summary="비디오 태그 목록 갱신",
+    description="비디오의 태그 목록을 갱신합니다. 요청에 포함되지 않은 기존 태그는 삭제됩니다.")
+async def update_video_tags(video_id: int, update: UpdateVideoTags, db: Session = Depends(get_db)):
+    """비디오의 태그 목록을 갱신합니다."""
+    try:
+        # 비디오 조회
+        video = db.query(Video).filter(Video.id == video_id).first()
+        if not video:
+            raise HTTPException(status_code=404, detail="Video not found")
+
+        # 요청된 태그들이 실제로 존재하는지 확인
+        tags = db.query(Tag).filter(Tag.id.in_(update.tag_ids)).all()
+        if len(tags) != len(update.tag_ids):
+            raise HTTPException(status_code=400, detail="Some tag IDs are invalid")
+        
+        # 태그 목록 업데이트
+        video.tags = tags
+        db.commit()
+
+        # info 파일 업데이트
+        tag_list = [{"id": tag.id, "name": tag.name} for tag in tags]
+        update_video_info(video.file_path, {"tags": tag_list})
+        
+        return tag_list
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e)) 

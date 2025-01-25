@@ -87,20 +87,6 @@ const SearchInput = styled.input`
   }
 `;
 
-// 파스텔톤 색상 배열
-const pastelColors = [
-  '#FFE5E5', // 연한 분홍
-  '#E5FFE5', // 연한 초록
-  '#E5E5FF', // 연한 파랑
-  '#FFE5FF', // 연한 보라
-  '#FFFFE5', // 연한 노랑
-  '#E5FFFF', // 연한 하늘
-];
-
-interface TagItemProps {
-  $colorIndex: number;
-}
-
 const TagItem = styled.div`
   width: calc(100% - 1rem);
   padding: 0.35rem 0.5rem;
@@ -120,6 +106,16 @@ const TagItem = styled.div`
     filter: brightness(0.95);
   }
 `;
+
+// 파스텔톤 색상 배열
+const pastelColors = [
+  '#FFE5E5', // 연한 분홍
+  '#E5FFE5', // 연한 초록
+  '#E5E5FF', // 연한 파랑
+  '#FFE5FF', // 연한 보라
+  '#FFFFE5', // 연한 노랑
+  '#E5FFFF', // 연한 하늘
+];
 
 interface Props {
   tags: Tag[];

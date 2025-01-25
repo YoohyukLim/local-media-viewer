@@ -354,19 +354,29 @@ export const VideoDetail: React.FC<Props> = ({
     setIsModified(false);
   }, [video]);
 
-  const handleAddTag = () => {
+  const handleAddTag = async () => {
     if (!newTagName.trim()) return;
 
-    // 임시 태그 ID 생성 (실제 저장 시 서버에서 할당될 ID)
-    const tempTag = {
-      id: -Date.now(),  // 임시 음수 ID로 구분
-      name: newTagName.trim()
-    };
+    try {
+      // 태그 생성 API 호출하여 ID 발급 (경로 수정)
+      const response = await fetch('/api/videos/tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newTagName.trim() })
+      });
 
-    setModifiedTags(prev => [...prev, tempTag]);
-    setIsModified(true);
-    setNewTagName('');
-    setIsAddingTag(false);
+      if (!response.ok) {
+        throw new Error('Failed to create tag');
+      }
+
+      const newTag = await response.json();
+      setModifiedTags(prev => [...prev, newTag]);
+      setIsModified(true);
+      setNewTagName('');
+      setIsAddingTag(false);
+    } catch (error) {
+      console.error('Error creating tag:', error);
+    }
   };
 
   const handleTagClick = (tagToRemove: { id: number; name: string }) => {
@@ -377,36 +387,22 @@ export const VideoDetail: React.FC<Props> = ({
 
   const handleConfirmChanges = async () => {
     try {
-      // 새로 추가된 태그들 (음수 ID)
-      const newTags = modifiedTags.filter(tag => tag.id < 0);
-      
-      // 삭제된 태그들 (원본 태그 중 modifiedTags에 없는 것들)
-      const deletedTags = video.tags.filter(
-        originalTag => !modifiedTags.some(tag => tag.id === originalTag.id)
-      );
+      // 현재 수정된 태그들의 ID 목록
+      const tagIds = modifiedTags.map(tag => tag.id);
 
-      // 새 태그 추가
-      for (const tag of newTags) {
-        const response = await fetch(`/api/videos/${video.id}/tags`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: tag.name })
-        });
+      // 태그 목록 갱신 API 호출
+      const response = await fetch(`/api/videos/${video.id}/tags`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tag_ids: tagIds })
+      });
 
-        if (!response.ok) throw new Error('Failed to add tag');
+      if (!response.ok) {
+        throw new Error('Failed to update tags');
       }
 
-      // 태그 삭제
-      for (const tag of deletedTags) {
-        const response = await fetch(`/api/videos/${video.id}/tags/${tag.id}`, {
-          method: 'DELETE'
-        });
-
-        if (!response.ok) throw new Error('Failed to delete tag');
-      }
-
-      // 모든 변경사항이 성공적으로 저장되면 상위 컴포넌트에 알림
-      onTagsUpdate?.(modifiedTags);
+      const updatedTags = await response.json();
+      onTagsUpdate?.(updatedTags);
       setIsModified(false);
     } catch (error) {
       console.error('Error saving tag changes:', error);
