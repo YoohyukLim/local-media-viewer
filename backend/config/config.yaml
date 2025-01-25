@@ -13,5 +13,4 @@ thumbnails:
   duration: 3.0      # 썸네일 영상 길이 (초)
   fps: 5.0         # 초당 프레임 수
   max_size: 480     # 최대 크기 (px)
-  max_workers: 6  # 썸네일 생성 워커 수
- 
+  max_workers: 6  # 썸네일 생성 워커 수 
