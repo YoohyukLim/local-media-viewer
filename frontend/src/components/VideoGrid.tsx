@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { Video } from '../types/video';
+import type { Tag } from '../types/video';
 import { VideoDetail } from './VideoDetail';
 
 const Grid = styled.div`
@@ -153,6 +154,7 @@ interface ThumbnailState {
 
 interface Props {
   videos: Video[];
+  setVideos: React.Dispatch<React.SetStateAction<Video[]>>;
   onTagClick?: (tag: { id: number; name: string }) => void;
   currentPage: number;
   totalPages: number;
@@ -162,6 +164,7 @@ interface Props {
 
 export const VideoGrid: React.FC<Props> = ({ 
   videos, 
+  setVideos,
   onTagClick,
   currentPage,
   totalPages,
@@ -303,6 +306,12 @@ export const VideoGrid: React.FC<Props> = ({
     }
   };
 
+  const handleTagsUpdate = (videoId: number, newTags: Video['tags']) => {
+    setVideos(videos => videos.map(video => 
+      video.id === videoId ? { ...video, tags: newTags } : video
+    ));
+  };
+
   return (
     <>
       <Grid>
@@ -389,6 +398,8 @@ export const VideoGrid: React.FC<Props> = ({
           onNextVideo={handleNextVideo}
           hasPrevVideo={videos.findIndex(v => v.id === selectedVideo.id) > 0 || currentPage > 1}
           hasNextVideo={videos.findIndex(v => v.id === selectedVideo.id) < videos.length - 1 || currentPage < totalPages}
+          onTagsUpdate={(newTags) => handleTagsUpdate(selectedVideo.id, newTags)}
+          onTagClick={onTagClick}
         />
       )}
     </>

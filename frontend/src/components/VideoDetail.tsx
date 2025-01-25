@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { Video } from '../types/video';
 
@@ -116,9 +116,7 @@ const TagList = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid #eee;
+  margin-top: 1rem;
 `;
 
 const Tag = styled.span`
@@ -127,10 +125,73 @@ const Tag = styled.span`
   border-radius: 20px;
   font-size: 0.9rem;
   cursor: pointer;
-  transition: background-color 0.2s;
   
   &:hover {
     background: #dee2e6;
+  }
+`;
+
+const AddTagButton = styled.button`
+  background: none;
+  border: 1px dashed #adb5bd;
+  border-radius: 20px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.9rem;
+  color: #868e96;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  
+  &:hover {
+    background: #f8f9fa;
+    border-color: #868e96;
+    color: #495057;
+  }
+`;
+
+const TagInput = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  
+  input {
+    padding: 0.35rem 0.7rem;
+    border: 1px solid #ced4da;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    outline: none;
+    
+    &:focus {
+      border-color: #339af0;
+      box-shadow: 0 0 0 2px rgba(51, 154, 240, 0.25);
+    }
+  }
+  
+  button {
+    padding: 0.35rem 0.7rem;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    
+    &.confirm {
+      background: #339af0;
+      color: white;
+      
+      &:hover {
+        background: #228be6;
+      }
+    }
+    
+    &.cancel {
+      background: #e9ecef;
+      color: #495057;
+      
+      &:hover {
+        background: #dee2e6;
+      }
+    }
   }
 `;
 
@@ -166,6 +227,53 @@ const NavButton = styled.button`
   }
 `;
 
+const TagActionButtons = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+
+  button {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    
+    &.confirm {
+      background: #339af0;
+      color: white;
+      
+      &:hover {
+        background: #228be6;
+      }
+
+      &::before {
+        content: '✓';
+        font-size: 1.2rem;
+      }
+    }
+    
+    &.cancel {
+      background: #fa5252;
+      color: white;
+      
+      &:hover {
+        background: #e03131;
+      }
+
+      &::before {
+        content: '×';
+        font-size: 1.4rem;
+      }
+    }
+  }
+`;
+
 interface Props {
   video: Video;
   onClose: () => void;
@@ -173,6 +281,8 @@ interface Props {
   onNextVideo?: () => void;
   hasPrevVideo?: boolean;
   hasNextVideo?: boolean;
+  onTagsUpdate?: (tags: Video['tags']) => void;
+  onTagClick?: (tag: { id: number; name: string }) => void;
 }
 
 export const VideoDetail: React.FC<Props> = ({ 
@@ -181,8 +291,15 @@ export const VideoDetail: React.FC<Props> = ({
   onPrevVideo,
   onNextVideo,
   hasPrevVideo = false,
-  hasNextVideo = false
+  hasNextVideo = false,
+  onTagsUpdate,
+  onTagClick
 }) => {
+  const [isAddingTag, setIsAddingTag] = useState(false);
+  const [newTagName, setNewTagName] = useState('');
+  const [modifiedTags, setModifiedTags] = useState<Video['tags']>(video.tags);
+  const [isModified, setIsModified] = useState(false);
+
   const formatDuration = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -229,6 +346,76 @@ export const VideoDetail: React.FC<Props> = ({
         console.error('Error playing video:', error);
       }
     }
+  };
+
+  useEffect(() => {
+    // video prop이 변경될 때마다 modifiedTags 업데이트
+    setModifiedTags(video.tags);
+    setIsModified(false);
+  }, [video]);
+
+  const handleAddTag = () => {
+    if (!newTagName.trim()) return;
+
+    // 임시 태그 ID 생성 (실제 저장 시 서버에서 할당될 ID)
+    const tempTag = {
+      id: -Date.now(),  // 임시 음수 ID로 구분
+      name: newTagName.trim()
+    };
+
+    setModifiedTags(prev => [...prev, tempTag]);
+    setIsModified(true);
+    setNewTagName('');
+    setIsAddingTag(false);
+  };
+
+  const handleTagClick = (tagToRemove: { id: number; name: string }) => {
+    // 태그 클릭 시 삭제
+    setModifiedTags(prev => prev.filter(tag => tag.id !== tagToRemove.id));
+    setIsModified(true);
+  };
+
+  const handleConfirmChanges = async () => {
+    try {
+      // 새로 추가된 태그들 (음수 ID)
+      const newTags = modifiedTags.filter(tag => tag.id < 0);
+      
+      // 삭제된 태그들 (원본 태그 중 modifiedTags에 없는 것들)
+      const deletedTags = video.tags.filter(
+        originalTag => !modifiedTags.some(tag => tag.id === originalTag.id)
+      );
+
+      // 새 태그 추가
+      for (const tag of newTags) {
+        const response = await fetch(`/api/videos/${video.id}/tags`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: tag.name })
+        });
+
+        if (!response.ok) throw new Error('Failed to add tag');
+      }
+
+      // 태그 삭제
+      for (const tag of deletedTags) {
+        const response = await fetch(`/api/videos/${video.id}/tags/${tag.id}`, {
+          method: 'DELETE'
+        });
+
+        if (!response.ok) throw new Error('Failed to delete tag');
+      }
+
+      // 모든 변경사항이 성공적으로 저장되면 상위 컴포넌트에 알림
+      onTagsUpdate?.(modifiedTags);
+      setIsModified(false);
+    } catch (error) {
+      console.error('Error saving tag changes:', error);
+    }
+  };
+
+  const handleCancelChanges = () => {
+    setModifiedTags(video.tags);
+    setIsModified(false);
   };
 
   // 키보드 이벤트 핸들러 추가
@@ -297,11 +484,51 @@ export const VideoDetail: React.FC<Props> = ({
             </NavButton>
           </NavigationButtons>
           <TagList>
-            {video.tags.map(tag => (
-              <Tag key={tag.id}>
+            {modifiedTags.map(tag => (
+              <Tag 
+                key={tag.id} 
+                onClick={() => handleTagClick(tag)}
+                title="클릭하여 태그 삭제"
+              >
                 {tag.name}
               </Tag>
             ))}
+            {isAddingTag ? (
+              <TagInput>
+                <input
+                  type="text"
+                  value={newTagName}
+                  onChange={e => setNewTagName(e.target.value)}
+                  placeholder="태그 입력..."
+                  autoFocus
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleAddTag();
+                    if (e.key === 'Escape') setIsAddingTag(false);
+                  }}
+                />
+                <button className="confirm" onClick={handleAddTag}>확인</button>
+                <button className="cancel" onClick={() => setIsAddingTag(false)}>취소</button>
+              </TagInput>
+            ) : (
+              <AddTagButton onClick={() => setIsAddingTag(true)}>
+                <span>+</span>
+                <span>태그 추가</span>
+              </AddTagButton>
+            )}
+            {isModified && (
+              <TagActionButtons>
+                <button 
+                  className="confirm" 
+                  onClick={handleConfirmChanges}
+                  title="변경사항 저장"
+                />
+                <button 
+                  className="cancel" 
+                  onClick={handleCancelChanges}
+                  title="변경사항 취소"
+                />
+              </TagActionButtons>
+            )}
           </TagList>
         </InfoSection>
       </DetailContainer>

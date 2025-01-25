@@ -225,6 +225,7 @@ function App() {
           )}
           <VideoGrid 
             videos={videos}
+            setVideos={setVideos}
             onTagClick={handleTagClick}
             currentPage={page}
             totalPages={totalPages}
