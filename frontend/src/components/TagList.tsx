@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import styled from 'styled-components';
 import { Tag } from '../types/video';
 
-const Sidebar = styled.div`
-  width: 240px;
+const MIN_WIDTH = 200;
+const MAX_WIDTH = 400;
+
+const Sidebar = styled.div<{ width: number }>`
+  width: ${props => props.width}px;
   padding: 1rem;
   background: white;
   border-right: 1px solid #ddd;
@@ -36,6 +39,33 @@ const Sidebar = styled.div`
     &:hover {
       background-color: #666;
     }
+  }
+`;
+
+const Resizer = styled.div`
+  width: 8px;
+  height: 100vh;
+  position: absolute;
+  right: -4px;
+  top: 0;
+  cursor: ew-resize;
+  
+  &::after {
+    content: '';
+    position: absolute;
+    left: 3px;
+    width: 2px;
+    height: 100%;
+    background: transparent;
+    transition: background-color 0.2s;
+  }
+  
+  &:hover::after {
+    background: #999;
+  }
+  
+  &:active::after {
+    background: #666;
   }
 `;
 
@@ -77,11 +107,44 @@ const TagItem = styled.div<{ colorIndex: number }>`
 interface Props {
   tags: Tag[];
   onTagClick?: (tag: Tag) => void;
+  onWidthChange?: (width: number) => void;
 }
 
-export const TagList: React.FC<Props> = ({ tags, onTagClick }) => {
+export const TagList: React.FC<Props> = ({ tags, onTagClick, onWidthChange }) => {
+  const [width, setWidth] = useState(240);
+  const [isResizing, setIsResizing] = useState(false);
+
+  const startResizing = useCallback((e: React.MouseEvent) => {
+    setIsResizing(true);
+    e.preventDefault();
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  const resize = useCallback((e: MouseEvent) => {
+    if (isResizing) {
+      const newWidth = Math.min(Math.max(e.clientX, MIN_WIDTH), MAX_WIDTH);
+      setWidth(newWidth);
+      onWidthChange?.(newWidth);
+    }
+  }, [isResizing, onWidthChange]);
+
+  useEffect(() => {
+    if (isResizing) {
+      window.addEventListener('mousemove', resize);
+      window.addEventListener('mouseup', stopResizing);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', resize);
+      window.removeEventListener('mouseup', stopResizing);
+    };
+  }, [isResizing, resize, stopResizing]);
+
   return (
-    <Sidebar>
+    <Sidebar width={width}>
       <Title>태그 목록</Title>
       {tags.map((tag, index) => (
         <TagItem 
@@ -92,6 +155,7 @@ export const TagList: React.FC<Props> = ({ tags, onTagClick }) => {
           {tag.name}
         </TagItem>
       ))}
+      <Resizer onMouseDown={startResizing} />
     </Sidebar>
   );
 };

@@ -5,8 +5,8 @@ import { Pagination } from './components/Pagination';
 import { TagList } from './components/TagList';
 import { Video, PageResponse, Tag } from './types/video';
 
-const Container = styled.div`
-  margin-left: 240px;  // 200px -> 240px로 증가
+const Container = styled.div<{ sidebarWidth: number }>`
+  margin-left: ${props => props.sidebarWidth}px;
   padding: 2rem;
 `;
 
@@ -28,6 +28,7 @@ function App() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(240);
   
   const fetchVideos = async (pageNum: number) => {
     try {
@@ -69,8 +70,12 @@ function App() {
   
   return (
     <>
-      <TagList tags={tags} />
-      <Container>
+      <TagList 
+        tags={tags}
+        onTagClick={(tag) => console.log('Tag clicked:', tag)}
+        onWidthChange={setSidebarWidth}
+      />
+      <Container sidebarWidth={sidebarWidth}>
         <MainContent>
           <VideoGrid videos={videos} />
           <Pagination
