@@ -32,19 +32,26 @@ const ThumbnailSection = styled.div`
   aspect-ratio: 1.9/1;
   background: black;
   position: relative;
-  display: flex;
-  justify-content: center;
-  align-items: center;
   cursor: pointer;
+  overflow: hidden;
   
-  img {
+  .thumbnail-container {
     width: 100%;
     height: 100%;
-    object-fit: contain;
-    transition: opacity 0.2s;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #000;
     
-    &:hover {
-      opacity: 0.8;
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      transition: opacity 0.2s;
+      
+      &:hover {
+        opacity: 0.8;
+      }
     }
   }
 `;
@@ -461,7 +468,7 @@ export const VideoDetail: React.FC<Props> = ({
             e.stopPropagation();
             onClose();
           }} />
-          <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden mb-4">
+          <div className="thumbnail-container">
             {thumbnailLoading && (
               <div className="w-full h-full flex items-center justify-center">
                 <span className="text-gray-500">Loading...</span>
@@ -471,7 +478,7 @@ export const VideoDetail: React.FC<Props> = ({
               <img
                 src={`http://localhost:8000/api/videos/thumbnails/${video.thumbnail_id}`}
                 alt={video.file_name}
-                className={`w-full h-full object-contain ${thumbnailLoading ? 'hidden' : ''}`}
+                className={thumbnailLoading ? 'hidden' : ''}
                 onError={handleThumbnailError}
                 onLoad={handleThumbnailLoad}
               />
