@@ -17,7 +17,7 @@ from sqlalchemy import select, and_
 from sqlalchemy.sql import func
 import math
 from enum import Enum
-from datetime import datetime
+from datetime import datetime, timedelta
 
 router = APIRouter()
 
@@ -172,10 +172,16 @@ async def get_thumbnail(thumbnail_id: str):
                 detail="Thumbnail not found"
             )
             
+        headers = {
+            'Cache-Control': 'public, max-age=600',  # 10분 캐싱
+            'Expires': (datetime.now() + timedelta(minutes=10)).strftime('%a, %d %b %Y %H:%M:%S GMT')
+        }
+            
         return FileResponse(
             path=thumbnail_path,
             media_type="image/webp",
-            filename=f"{thumbnail_id}.webp"
+            filename=f"{thumbnail_id}.webp",
+            headers=headers
         )
         
     except Exception as e:

@@ -22,6 +22,13 @@ const Loading = styled.div`
   color: #666;
 `;
 
+const MainLoading = styled.div`
+  text-align: center;
+  padding: 2rem;
+  font-size: 1.2rem;
+  color: #666;
+`;
+
 const SelectedTagsHeader = styled.div`
   display: flex;
   justify-content: space-between;
@@ -100,12 +107,14 @@ function App() {
   const [tags, setTags] = useState<Tag[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [loading, setLoading] = useState(false);
+  const [mainLoading, setMainLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(240);
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [searchMode, setSearchMode] = useState<'AND' | 'OR'>('AND');
   
   const handleTagClick = (tag: Tag) => {
+    setPage(1);
     setSelectedTags(prev => {
       const isSelected = prev.some(t => t.id === tag.id);
       if (isSelected) {
@@ -116,16 +125,18 @@ function App() {
   };
 
   const removeTag = (tagId: number) => {
+    setPage(1);
     setSelectedTags(prev => prev.filter(tag => tag.id !== tagId));
   };
 
   const toggleSearchMode = () => {
+    setPage(1);
     setSearchMode(prev => prev === 'AND' ? 'OR' : 'AND');
   };
 
   const fetchVideos = async (pageNum: number, tagIds?: number[]) => {
     try {
-      setLoading(true);
+      setMainLoading(true);
       let url = `/api/videos/list?page=${pageNum}&size=25`;
       if (tagIds && tagIds.length > 0) {
         url += tagIds.map(id => `&tag_ids=${id}`).join('');
@@ -138,7 +149,7 @@ function App() {
     } catch (error) {
       console.error('Failed to fetch videos:', error);
     } finally {
-      setLoading(false);
+      setMainLoading(false);
     }
   };
 
@@ -149,6 +160,8 @@ function App() {
       setTags(data);
     } catch (error) {
       console.error('Failed to fetch tags:', error);
+    } finally {
+      setInitialLoading(false);
     }
   };
   
@@ -160,7 +173,7 @@ function App() {
     fetchTags();
   }, []);
   
-  if (loading) {
+  if (initialLoading) {
     return <Loading>Loading...</Loading>;
   }
   
@@ -196,7 +209,11 @@ function App() {
               </div>
             </SelectedTagsHeader>
           )}
-          <VideoGrid videos={videos} />
+          {mainLoading ? (
+            <MainLoading>Loading...</MainLoading>
+          ) : (
+            <VideoGrid videos={videos} />
+          )}
           <Pagination
             currentPage={page}
             totalPages={totalPages}
