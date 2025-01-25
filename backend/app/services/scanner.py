@@ -12,6 +12,8 @@ from typing import List
 from .tags import cleanup_unused_tags
 from ..logger import logger
 from .thumbnail_worker import get_thumbnail_worker
+import hashlib
+from datetime import datetime
 
 # 전역 settings 객체 초기화
 settings = Settings()
@@ -48,8 +50,15 @@ def remove_missing_videos(db: Session, existing_files: set[str], video_directori
     
     db.commit()
 
+def get_thumbnail_id(file_path: str) -> str:
+    """파일 경로를 해시하여 썸네일 ID를 생성합니다."""
+    # 경로를 UTF-8로 인코딩하고 SHA-256 해시 생성
+    hash_obj = hashlib.sha256(file_path.encode('utf-8'))
+    # 32자리 hex 문자열 반환
+    return hash_obj.hexdigest()[:32]
+
 def scan_videos(db: Session):
-    """설정된 디렉토리들의 비디오 파일들을 스캔하여 DB에 저장합니다."""
+    """비디오 파일들을 스캔하여 DB에 저장합니다."""
     try:
         logger.info("Starting video scan...")
         reload_settings()
@@ -76,6 +85,8 @@ def scan_videos(db: Session):
                                     if duration > 0:
                                         existing_video.duration = duration
                                         existing_video.file_name = Video.get_file_name(file_path)
+                                        existing_video.thumbnail_id = get_thumbnail_id(file_path)
+                                        existing_video.updated_at = datetime.now()
                                 db.add(existing_video)
                                 db.flush()
                                 update_video_metadata(existing_video, file_path, base_dir, db)
@@ -85,7 +96,7 @@ def scan_videos(db: Session):
                             else:
                                 logger.info(f"Adding new video: {file_path}")
                                 # 새 비디오 추가
-                                thumbnail_id = Video.generate_thumbnail_id()
+                                thumbnail_id = get_thumbnail_id(file_path)
                                 duration = get_video_duration(file_path)
                                 video = Video(
                                     file_path=file_path,
