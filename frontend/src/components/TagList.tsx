@@ -97,11 +97,14 @@ const pastelColors = [
   '#E5FFFF', // 연한 하늘
 ];
 
-const TagItem = styled.div<{ colorIndex: number }>`
+interface TagItemProps {
+  $colorIndex: number;
+}
+
+const TagItem = styled.div`
   width: calc(100% - 1rem);
   padding: 0.35rem 0.5rem;
   margin: 0.2rem 0;
-  background: ${props => pastelColors[props.colorIndex]};
   border-radius: 4px;
   cursor: pointer;
   transition: background-color 0.2s;
@@ -175,8 +178,8 @@ export const TagList: React.FC<Props> = ({ tags, onTagClick, onWidthChange }) =>
         {filteredTags.map((tag, index) => (
           <TagItem 
             key={tag.id}
-            colorIndex={index % pastelColors.length}
             onClick={() => onTagClick?.(tag)}
+            style={{ background: pastelColors[index % pastelColors.length] }}
           >
             {tag.name}
           </TagItem>

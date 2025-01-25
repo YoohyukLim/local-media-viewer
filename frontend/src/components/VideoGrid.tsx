@@ -49,6 +49,8 @@ const VideoCard = styled.div`
       display: flex;
       flex-wrap: wrap;
       gap: 0.25rem;
+      max-height: 3.2rem;
+      overflow: hidden;
     }
   }
 `;
@@ -58,6 +60,15 @@ const Tag = styled.span`
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
   font-size: 0.8rem;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  
+  &:hover {
+    background: #dee2e6;
+  }
 `;
 
 const ThumbnailContainer = styled.div`
@@ -104,9 +115,10 @@ interface ThumbnailState {
 
 interface Props {
   videos: Video[];
+  onTagClick?: (tag: { id: number; name: string }) => void;
 }
 
-export const VideoGrid: React.FC<Props> = ({ videos }) => {
+export const VideoGrid: React.FC<Props> = ({ videos, onTagClick }) => {
   const [thumbnailStates, setThumbnailStates] = useState<{ [key: number]: ThumbnailState }>({});
 
   // 컴포넌트 언마운트 시 타이머 정리
@@ -178,16 +190,26 @@ export const VideoGrid: React.FC<Props> = ({ videos }) => {
 
   const handleVideoClick = async (videoId: number) => {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
       const response = await fetch(`/api/videos/play/${videoId}`, {
-        method: 'POST'
+        method: 'POST',
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.detail || 'Failed to play video');
       }
-    } catch (error) {
-      console.error('Error playing video:', error);
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('Request was aborted');
+      } else {
+        console.error('Error playing video:', error);
+      }
     }
   };
 
@@ -234,7 +256,15 @@ export const VideoGrid: React.FC<Props> = ({ videos }) => {
               </div>
               <div className="tags">
                 {video.tags.map(tag => (
-                  <Tag key={tag.id}>{tag.name}</Tag>
+                  <Tag 
+                    key={tag.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onTagClick?.(tag);
+                    }}
+                  >
+                    {tag.name}
+                  </Tag>
                 ))}
               </div>
             </div>

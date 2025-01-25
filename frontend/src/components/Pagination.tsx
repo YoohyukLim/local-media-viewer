@@ -8,21 +8,22 @@ const Nav = styled.nav`
   gap: 0.5rem;
 `;
 
-const PageButton = styled.button<{ active?: boolean }>`
+const PageButton = styled.button<{ $active?: boolean }>`
   padding: 0.5rem 1rem;
-  border: 1px solid #ddd;
-  background: ${props => props.active ? '#007bff' : 'white'};
-  color: ${props => props.active ? 'white' : 'black'};
-  cursor: pointer;
+  margin: 0 0.25rem;
+  border: 1px solid ${props => props.$active ? '#339af0' : '#dee2e6'};
   border-radius: 4px;
+  background: ${props => props.$active ? '#339af0' : 'white'};
+  color: ${props => props.$active ? 'white' : '#495057'};
+  cursor: pointer;
   
-  &:hover:not(:disabled) {
-    background: ${props => props.active ? '#007bff' : '#e9ecef'};
+  &:hover {
+    background: ${props => props.$active ? '#1c7ed6' : '#f8f9fa'};
   }
   
   &:disabled {
-    opacity: 0.5;
     cursor: not-allowed;
+    opacity: 0.5;
   }
 `;
 
@@ -84,7 +85,7 @@ export const Pagination: React.FC<Props> = ({
       {getPageNumbers().map(pageNum => (
         <PageButton
           key={pageNum}
-          active={currentPage === pageNum}
+          $active={pageNum === currentPage}
           onClick={() => onPageChange(pageNum)}
         >
           {pageNum}

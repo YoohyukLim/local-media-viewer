@@ -5,8 +5,8 @@ import { Pagination } from './components/Pagination';
 import { TagList } from './components/TagList';
 import { Video, PageResponse, Tag } from './types/video';
 
-const Container = styled.div<{ sidebarWidth: number }>`
-  margin-left: ${props => props.sidebarWidth}px;
+const Container = styled.div<{ $sidebarWidth: number }>`
+  margin-left: ${props => props.$sidebarWidth}px;
   padding: 2rem;
 `;
 
@@ -184,7 +184,7 @@ function App() {
         onTagClick={handleTagClick}
         onWidthChange={setSidebarWidth}
       />
-      <Container sidebarWidth={sidebarWidth}>
+      <Container $sidebarWidth={sidebarWidth}>
         <MainContent>
           {selectedTags.length > 0 && (
             <SelectedTagsHeader>
@@ -212,7 +212,10 @@ function App() {
           {mainLoading ? (
             <MainLoading>Loading...</MainLoading>
           ) : (
-            <VideoGrid videos={videos} />
+            <VideoGrid 
+              videos={videos} 
+              onTagClick={handleTagClick}
+            />
           )}
           <Pagination
             currentPage={page}
