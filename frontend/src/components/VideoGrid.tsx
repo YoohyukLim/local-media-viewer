@@ -67,6 +67,7 @@ const VideoCard = styled.div<{ isSelected?: boolean }>`
   
   .info {
     padding: 0.5rem;
+    cursor: pointer;
     
     h3 {
       margin: 0 0 0.5rem 0;
@@ -343,18 +344,22 @@ export const VideoGrid: React.FC<Props> = ({
                   />
                 )}
               </ThumbnailContainer>
-              <div className="info">
-                <h3 
-                  title={video.file_name}
-                  onClick={() => setSelectedVideo(video)}
-                  style={{ cursor: 'pointer' }}
-                >
+              <div 
+                className="info"
+                onClick={(e) => {
+                  if ((e.target as HTMLElement).closest('.tags')) {
+                    return;
+                  }
+                  setSelectedVideo(video);
+                }}
+              >
+                <h3 title={video.file_name}>
                   {video.file_name}
                 </h3>
                 <div className="meta">
                   {formatDuration(video.duration)}
                 </div>
-                <div className="tags">
+                <div className="tags" onClick={e => e.stopPropagation()}>
                   {video.tags.map(tag => (
                     <Tag 
                       key={tag.id}
