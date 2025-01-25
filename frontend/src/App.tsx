@@ -2,12 +2,17 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { VideoGrid } from './components/VideoGrid';
 import { Pagination } from './components/Pagination';
-import { Video, PageResponse } from './types/video';
+import { TagList } from './components/TagList';
+import { Video, PageResponse, Tag } from './types/video';
 
 const Container = styled.div`
+  margin-left: 240px;  // 200px -> 240px로 증가
+  padding: 2rem;
+`;
+
+const MainContent = styled.div`
   max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem;
 `;
 
 const Loading = styled.div`
@@ -19,6 +24,7 @@ const Loading = styled.div`
 
 function App() {
   const [videos, setVideos] = useState<Video[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -30,8 +36,6 @@ function App() {
         `/api/videos/list?page=${pageNum}&size=25`
       );
       const data: PageResponse<Video> = await response.json();
-      console.log('API Response:', data);
-      
       setVideos(data.items);
       setTotalPages(data.pages);
     } catch (error) {
@@ -40,24 +44,43 @@ function App() {
       setLoading(false);
     }
   };
+
+  const fetchTags = async () => {
+    try {
+      const response = await fetch('/api/videos/tags');
+      const data: Tag[] = await response.json();
+      setTags(data);
+    } catch (error) {
+      console.error('Failed to fetch tags:', error);
+    }
+  };
   
   useEffect(() => {
     fetchVideos(page);
   }, [page]);
+
+  useEffect(() => {
+    fetchTags();
+  }, []);
   
   if (loading) {
     return <Loading>Loading...</Loading>;
   }
   
   return (
-    <Container>
-      <VideoGrid videos={videos} />
-      <Pagination
-        currentPage={page}
-        totalPages={totalPages}
-        onPageChange={setPage}
-      />
-    </Container>
+    <>
+      <TagList tags={tags} />
+      <Container>
+        <MainContent>
+          <VideoGrid videos={videos} />
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
+        </MainContent>
+      </Container>
+    </>
   );
 }
 
