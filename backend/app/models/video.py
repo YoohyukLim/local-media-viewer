@@ -18,10 +18,6 @@ class Video(Base):
     tags = relationship("Tag", secondary=video_tags, back_populates="videos")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    @staticmethod
-    def generate_thumbnail_id():
-        return str(uuid.uuid4())
     
     @staticmethod
     def get_file_name(file_path: str) -> str:

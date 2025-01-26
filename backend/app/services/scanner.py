@@ -1,5 +1,4 @@
 import os
-import cv2
 from sqlalchemy.orm import Session
 from ..models.video import Video
 from .thumbnail import ensure_thumbnail, create_thumbnail
@@ -8,7 +7,7 @@ from .metadata import (
     update_video_metadata
 )
 from ..config import settings  # 싱글톤 settings import
-from typing import List
+from typing import List, Set
 from .tags import cleanup_unused_tags
 from ..logger import logger
 from .thumbnail_worker import get_thumbnail_worker
@@ -67,41 +66,7 @@ def scan_videos(db: Session):
                         try:
                             file_path = os.path.join(root, file)
                             existing_files.add(file_path)
-                            
-                            existing_video = db.query(Video).filter(Video.file_path == file_path).first()
-                            if existing_video:
-                                if is_video_modified(file_path, existing_video):
-                                    logger.info(f"Updating modified video: {file_path}")
-                                    duration = get_video_duration(file_path)
-                                    if duration > 0:
-                                        existing_video.duration = duration
-                                        existing_video.file_name = Video.get_file_name(file_path)
-                                        existing_video.thumbnail_id = get_thumbnail_id(file_path)
-                                        existing_video.updated_at = datetime.now()
-                                db.add(existing_video)
-                                db.flush()
-                                update_video_metadata(existing_video, file_path, base_dir, db)
-
-                                # 썸네일 업데이트 요청을 큐에 추가
-                                thumbnail_worker.add_task(existing_video.thumbnail_id, file_path)
-                            else:
-                                logger.info(f"Adding new video: {file_path}")
-                                # 새 비디오 추가
-                                thumbnail_id = get_thumbnail_id(file_path)
-                                duration = get_video_duration(file_path)
-                                video = Video(
-                                    file_path=file_path,
-                                    file_name=Video.get_file_name(file_path),
-                                    thumbnail_id=thumbnail_id,
-                                    duration=duration
-                                )
-                                db.add(video)
-                                db.flush()
-                                update_video_metadata(video, file_path, base_dir, db)
-                                
-                                # 썸네일 생성 요청을 큐에 추가
-                                thumbnail_worker.add_task(thumbnail_id, file_path)
-                                
+                            process_video_file(db, file_path, base_dir, thumbnail_worker)
                         except Exception as e:
                             logger.error(f"Error processing file {file_path}: {str(e)}")
                             db.rollback()
@@ -116,6 +81,46 @@ def scan_videos(db: Session):
         logger.error(f"Error in scan_videos: {str(e)}")
         db.rollback()
         raise
+
+def process_video_file(db: Session, file_path: str, base_dir: str, thumbnail_worker):
+    logger.info(f"Processing video file: {file_path}")
+    """개별 비디오 파일 처리"""
+    existing_video = db.query(Video).filter(Video.file_path == file_path).first()
+    
+    # 새 비디오 생성 또는 기존 비디오 수정이 필요한 경우
+    should_update = (
+        not existing_video or 
+        (existing_video and is_video_modified(file_path, existing_video))
+    )
+    
+    if should_update:
+        duration = get_video_duration(file_path)
+        if duration <= 0:
+            logger.error(f"Failed to get duration for {file_path}")
+            return
+            
+        thumbnail_id = get_thumbnail_id(file_path)
+        
+        if existing_video:
+            logger.info(f"Updating modified video: {file_path}")
+            existing_video.duration = duration
+            existing_video.file_name = Video.get_file_name(file_path)
+            existing_video.thumbnail_id = thumbnail_id
+            existing_video.updated_at = datetime.now()
+            video = existing_video
+        else:
+            logger.info(f"Adding new video: {file_path}")
+            video = Video(
+                file_path=file_path,
+                file_name=Video.get_file_name(file_path),
+                thumbnail_id=thumbnail_id,
+                duration=duration
+            )
+        
+        db.add(video)
+        db.flush()
+        update_video_metadata(video, file_path, base_dir, db)
+        thumbnail_worker.add_task(thumbnail_id, file_path)
 
 def get_videos(db: Session, page: int = 1, page_size: int = 10) -> tuple[List[dict], int]:
     """저장된 비디오 목록을 반환합니다."""
