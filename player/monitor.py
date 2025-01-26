@@ -1,12 +1,13 @@
 import os
 import sys
-import time
-import subprocess
 import logging
 import argparse
 import yaml
-import atexit
 import platform
+import socket
+import selectors
+import subprocess
+import signal
 from pathlib import Path
 
 # 로깅 설정
@@ -19,13 +20,22 @@ logger = logging.getLogger(__name__)
 class PlayerMonitor:
     def __init__(self, config_path: str):
         self.config = self.load_config(config_path)
-        self.pipe_path = self.config.get('pipe_path', 'D:/videos/player.pipe')
-        self.ensure_pipe()
-        # 프로세스 종료 시 파이프 파일 정리
-        atexit.register(self.cleanup)
-        
-        # 플랫폼 확인
+        self.host = self.config.get('host', 'localhost')
+        self.port = self.config.get('port', 9990)
         self.platform = platform.system()
+        self.sel = selectors.DefaultSelector()
+        self.server_socket = None
+        self.running = True
+        # 시그널 핸들러 등록
+        signal.signal(signal.SIGINT, self._signal_handler)
+        signal.signal(signal.SIGTERM, self._signal_handler)
+    
+    def _signal_handler(self, signum, frame):
+        """시그널 핸들러"""
+        signal_name = signal.Signals(signum).name
+        logger.info(f"Received signal {signal_name}")
+        self.running = False
+        self.cleanup()
     
     def open_file(self, file_path: str):
         """플랫폼에 따라 파일 열기"""
@@ -45,15 +55,6 @@ class PlayerMonitor:
         except Exception as e:
             logger.error(f"Failed to open file: {e}")
     
-    def cleanup(self):
-        """파이프 파일 정리"""
-        try:
-            if os.path.exists(self.pipe_path):
-                os.remove(self.pipe_path)
-                logger.info(f"Removed pipe file: {self.pipe_path}")
-        except Exception as e:
-            logger.error(f"Failed to remove pipe file: {e}")
-    
     def load_config(self, config_path: str) -> dict:
         """설정 파일 로드"""
         try:
@@ -63,54 +64,63 @@ class PlayerMonitor:
             logger.error(f"Failed to load config file: {e}")
             sys.exit(1)
     
-    def ensure_pipe(self):
-        """파이프 파일이 없으면 생성"""
-        try:
-            pipe_dir = os.path.dirname(self.pipe_path)
-            os.makedirs(pipe_dir, exist_ok=True)
-            
-            # 파일이 없으면 빈 파일 생성
-            if not os.path.exists(self.pipe_path):
-                open(self.pipe_path, 'w').close()
-                logger.info(f"Created pipe file at {self.pipe_path}")
-        except Exception as e:
-            logger.error(f"Failed to create pipe file: {e}")
-            sys.exit(1)
+    def accept(self, sock: socket.socket, mask):
+        """새로운 클라이언트 연결 처리"""
+        conn, addr = sock.accept()
+        logger.info(f'Accepted connection from {addr}')
+        conn.setblocking(False)
+        self.sel.register(conn, selectors.EVENT_READ, self.read)
     
-    def execute_command(self, command: str):
-        """Windows start 커맨드 실행"""
+    def read(self, conn: socket.socket, mask):
+        """클라이언트로부터 데이터 읽기"""
         try:
-            subprocess.run(command, shell=True)
-            logger.info(f"Executed command: {command}")
+            data = conn.recv(4096).decode('utf-8')
+            if data:
+                if '\n' in data:
+                    file_path = data.strip()
+                    self.open_file(file_path)
+        
+            # 데이터 처리 후 항상 연결 종료
+            logger.info('Closing connection')
+            self.sel.unregister(conn)
+            conn.close()
         except Exception as e:
-            logger.error(f"Failed to execute command: {e}")
+            logger.error(f'Error reading from socket: {e}')
+            self.sel.unregister(conn)
+            conn.close()
+    
+    def cleanup(self):
+        """소켓 및 셀렉터 정리"""
+        if self.running:  # 중복 cleanup 방지
+            self.running = False
+            if self.server_socket:
+                self.sel.unregister(self.server_socket)
+                self.server_socket.close()
+            self.sel.close()
+            logger.info("Cleaned up server resources")
     
     def monitor(self):
-        """파이프 파일 모니터링"""
-        logger.info(f"Starting monitor on {self.pipe_path}")
-        
+        """TCP 서버 실행 및 모니터링"""
         try:
-            last_position = 0
-            while True:
-                try:
-                    with open(self.pipe_path, 'r') as pipe:
-                        pipe.seek(last_position)
-                        while True:
-                            file_path = pipe.readline().strip()
-                            if file_path:
-                                self.open_file(file_path)
-                                break
-                            last_position = pipe.tell()
-                            time.sleep(0.1)
-                    # 파일 삭제 후 새로 생성
-                    os.remove(self.pipe_path)
-                    self.ensure_pipe()
-                except KeyboardInterrupt:
-                    logger.info("Received shutdown signal")
-                    break
-                except Exception as e:
-                    logger.error(f"Error reading from pipe: {e}")
-                    time.sleep(1)
+            self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.server_socket.bind((self.host, self.port))
+            self.server_socket.listen(5)
+            self.server_socket.setblocking(False)
+            
+            self.sel.register(self.server_socket, selectors.EVENT_READ, self.accept)
+            logger.info(f'Starting monitor on {self.host}:{self.port}')
+            
+            while self.running:
+                events = self.sel.select(timeout=1.0)
+                for key, mask in events:
+                    callback = key.data
+                    callback(key.fileobj, mask)
+                    
+        except KeyboardInterrupt:
+            logger.info("Received shutdown signal")
+        except Exception as e:
+            logger.error(f"Server error: {e}")
         finally:
             self.cleanup()
 
