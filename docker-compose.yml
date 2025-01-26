@@ -25,7 +25,7 @@ services:
         target: /videos/others
     environment:
       - PORT=8000
-      - CONFIG_PATH=/config/config.yaml
+      - CONFIG_PATH=/config/config.container.yaml
     restart: unless-stopped
 
   frontend:

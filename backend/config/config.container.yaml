@@ -1,0 +1,23 @@
+# 비디오 파일이 있는 디렉토리 목록
+video_directories:
+  - "/videos"
+
+# DB 설정
+database:
+  path: "/videos/data/videos.db"  # DB 파일 경로
+
+# 썸네일 설정
+thumbnails:
+  directory: "/videos/data/thumbnails"  # 썸네일이 저장될 절대 경로
+  extension: ".webp"  # 썸네일 파일 확장자
+  duration: 3.0      # 썸네일 영상 길이 (초)
+  fps: 5.0         # 초당 프레임 수
+  max_size: 480     # 최대 크기 (px)
+  max_workers: 6  # 썸네일 생성 워커 수 
+
+# 컨테이너 모드 설정
+container:
+  mode: true
+  player_host: host.docker.internal
+  player_port: 9990
+  compose_path: "/compose/docker-compose.yml"

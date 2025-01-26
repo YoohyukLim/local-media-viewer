@@ -30,7 +30,7 @@ class Settings:
         # 설정 파일 경로 결정
         if self.config_path is None:
             config_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config")
-            self.config_path = os.path.join(config_dir, "config.yaml")
+            self.config_path = os.path.join(config_dir, "config.local.yaml")
         
         # 설정 파일이 없으면 기본 설정으로 생성
         if not os.path.exists(self.config_path):
