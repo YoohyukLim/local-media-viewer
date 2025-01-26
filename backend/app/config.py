@@ -70,8 +70,9 @@ class Settings:
         # 컨테이너 모드 설정
         container_config = config.get("container", {})
         self.CONTAINER_MODE = bool(container_config.get("mode", False))
-        self.PLAYER_PIPE = container_config.get("player_pipe", "/videos/data/player.pipe")
-        self.COMPOSE_PATH = container_config.get("compose_path", "/videos/data/docker-compose.yml")
+        self.PLAYER_HOST = container_config.get("player_host", "localhost")
+        self.PLAYER_PORT = int(container_config.get("player_port", 9990))
+        self.COMPOSE_PATH = container_config.get("compose_path", "/app/docker-compose.yml")
 
         # Docker Compose 볼륨 마운트 정보 로드
         self.volume_mounts = {}

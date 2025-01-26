@@ -19,6 +19,7 @@ import math
 from enum import Enum
 from datetime import datetime, timedelta
 from ..services.metadata import update_video_info
+import socket
 
 router = APIRouter()
 
@@ -274,15 +275,22 @@ async def play_video(video_id: int, db: Session = Depends(get_db)):
             host_path = settings.get_host_path(video.file_path)
             logger.info(f"Converted path: {host_path}")
             
-            if not os.path.exists(settings.PLAYER_PIPE):
+            try:
+                # TCP 소켓으로 파일 경로 전송
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                    sock.connect((settings.PLAYER_HOST, settings.PLAYER_PORT))
+                    sock.sendall(f"{host_path}\n".encode('utf-8'))
+                    logger.info("Sent file path to player")
+            except ConnectionRefusedError:
                 raise HTTPException(
-                    status_code=500, 
-                    detail="Player pipe not found"
+                    status_code=500,
+                    detail="Player service is not running"
                 )
-            
-            with open(settings.PLAYER_PIPE, 'w') as pipe:
-                pipe.write(host_path + '\n')
-                pipe.flush()
+            except Exception as e:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to connect to player: {str(e)}"
+                )
         else:
             # 로컬 모드에서는 기존 방식대로 직접 실행
             os.startfile(video.file_path)

@@ -9,17 +9,20 @@ services:
       - "8000:8000"
     volumes:
       - type: bind
-        source: D:/config-path # 실제 경로로 수정해주세요
+        source: # docker-compose.yml 경로
+        target: /compose
+      - type: bind
+        source: # config.yaml 경로
         target: /config
       - type: bind
-        source: D:/data-path # 실제 경로로 수정해주세요
+        source: # db 경로 
         target: /videos/data
       - type: bind
-        source: D:/video-path1 # 실제 경로로 수정해주세요
-        target: /videos/path1
+        source: # 비디오 경로 1
+        target: /videos/movies
       - type: bind
-        source: D:/video-path2
-        target: /videos/path2
+        source: # 비디오 경로 2
+        target: /videos/others
     environment:
       - PORT=8000
       - CONFIG_PATH=/config/config.yaml
