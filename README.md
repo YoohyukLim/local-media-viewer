@@ -9,6 +9,7 @@
 - 지원 포맷: mp4, avi, mkv, mov
 - 비디오 메타데이터(길이, 생성일 등) 자동 추출
 - 썸네일 자동 생성
+- 컨테이너 모드에서 호스트 경로 매핑
 
 ### 2. 태그 시스템
 - 비디오에 여러 태그 추가/삭제 가능
@@ -25,6 +26,7 @@
 - 비디오 디렉토리 목록
 - 데이터베이스 위치
 - 썸네일 설정 (디렉토리, 포맷, 크기 등)
+- 컨테이너 모드 설정
 - 커맨드라인에서 설정 파일 위치 지정 가능
 
 ## 기술 스택
@@ -39,47 +41,106 @@
 - React
 - TypeScript
 - Styled Components
-- Tailwind CSS
 
-## 설정 파일 구조
-
-```yaml
-# 비디오 파일이 있는 디렉토리 목록
-video_directories:
-  - "D:/videos"
-
-# DB 설정
-database:
-  path: "D:/videos/videos.db"
-
-# 썸네일 설정
-thumbnails:
-  directory: "D:/videos/thumbnails"
-  extension: ".webp"
-  duration: 3.0      # 썸네일 영상 길이 (초)
-  fps: 5.0          # 초당 프레임 수
-  max_size: 480     # 최대 크기 (px)
-  max_workers: 6    # 썸네일 생성 워커 수
-```
+### Infrastructure
+- Docker
+- Nginx
+- Socket 통신
 
 ## 실행 방법
+
+### 1. 컨테이너 모드로 실행
+
+1. 설정 파일 준비:
+```bash
+# config/config.container.yaml 파일 생성
+cp config/config.yaml.example config/config.container.yaml
+# 설정 파일 수정
+```
+
+2. Docker Compose로 실행:
+```bash
+# 서비스 시작
+docker-compose up -d
+
+# 로그 확인
+docker-compose logs -f
+
+# 서비스 중지
+docker-compose down
+```
+
+3. 플레이어 모니터 실행:
+```bash
+# Windows
+start_player.cmd
+
+# Linux/macOS
+cd player
+python monitor.py --config config.yaml
+```
+
+### 2. 로컬 모드로 실행
 
 1. 백엔드 실행:
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-python -m app.main --port 8000 --config ./config/config.yaml
+python -m app.main --config ./config/config.local.yaml
 ```
 
 2. 프론트엔드 실행:
 ```bash
 cd frontend
-nvm use 18.18.0
 npm install
 npm start
 ```
+
+브라우저에서 http://localhost:3000 으로 접속하면 됩니다.
+
+> 참고: 로컬 모드에서는 백엔드가 직접 시스템의 기본 비디오 플레이어를 실행하므로 별도의 플레이어 모니터가 필요하지 않습니다.
+
+## 설정 파일 구조
+
+### Backend 설정
+```yaml
+# 비디오 파일이 있는 디렉토리 목록
+video_directories:
+  - "/videos/data"
+  - "/videos/marvel"
+
+# DB 설정
+database:
+  path: "/videos/data/videos.db"
+
+# 썸네일 설정
+thumbnails:
+  directory: "/videos/data/thumbnails"
+  extension: ".webp"
+  duration: 3.0
+  fps: 5.0
+  max_size: 480
+  max_workers: 6
+
+# 컨테이너 모드 설정
+container:
+  mode: true
+  player_host: "localhost"
+  player_port: 9990
+```
+
+### Player 설정
+```yaml
+host: "localhost"
+port: 9990
+```
+
+## 브라우저 접속
+
+- 컨테이너 모드: http://localhost:3000
+- 로컬 모드: http://localhost:3000
 
 ## 주요 구현 사항
 
