@@ -290,6 +290,7 @@ interface Props {
   hasNextVideo?: boolean;
   onTagsUpdate?: (tags: Video['tags']) => void;
   onTagClick?: (tag: { id: number; name: string }) => void;
+  isDetailMode?: boolean;
 }
 
 export const VideoDetail: React.FC<Props> = ({ 
@@ -300,7 +301,8 @@ export const VideoDetail: React.FC<Props> = ({
   hasPrevVideo = false,
   hasNextVideo = false,
   onTagsUpdate,
-  onTagClick
+  onTagClick,
+  isDetailMode = false
 }) => {
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [newTagName, setNewTagName] = useState('');
@@ -423,33 +425,34 @@ export const VideoDetail: React.FC<Props> = ({
     setIsModified(false);
   };
 
-  // 키보드 이벤트 핸들러 추가
+  // 키보드 이벤트 핸들러 수정
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      switch (e.key) {
-        case 'ArrowLeft':
-          if (hasPrevVideo && onPrevVideo) {
-            onPrevVideo();
-          }
-          break;
-        case 'ArrowRight':
-          if (hasNextVideo && onNextVideo) {
-            onNextVideo();
-          }
-          break;
-        case 'Escape':
-          onClose();
-          break;
+      // 상세 페이지 모드일 때만 좌우 키로 비디오 전환
+      if (isDetailMode) {
+        switch (e.key) {
+          case 'ArrowLeft':
+            if (hasPrevVideo && onPrevVideo) {
+              onPrevVideo();
+            }
+            break;
+          case 'ArrowRight':
+            if (hasNextVideo && onNextVideo) {
+              onNextVideo();
+            }
+            break;
+        }
+      }
+      
+      // ESC 키는 모든 모드에서 동작
+      if (e.key === 'Escape') {
+        onClose();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    
-    // 컴포넌트 언마운트 시 이벤트 리스너 제거
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [onPrevVideo, onNextVideo, onClose, hasPrevVideo, hasNextVideo]);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onPrevVideo, onNextVideo, onClose, hasPrevVideo, hasNextVideo, isDetailMode]);
 
   const handleThumbnailError = () => {
     setThumbnailError(true);

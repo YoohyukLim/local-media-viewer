@@ -175,6 +175,30 @@ export const VideoGrid: React.FC<Props> = ({
   const [pendingTransition, setPendingTransition] = useState<'next' | 'prev' | null>(null);
   const prevVideosRef = useRef<Video[]>([]);
 
+  // 키보드 이벤트 핸들러 추가
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 상세 페이지가 열려있지 않을 때만 페이지 전환 키 동작
+      if (!selectedVideo) {
+        switch (e.key) {
+          case 'ArrowLeft':
+            if (currentPage > 1) {
+              onPageChange(currentPage - 1);
+            }
+            break;
+          case 'ArrowRight':
+            if (currentPage < totalPages) {
+              onPageChange(currentPage + 1);
+            }
+            break;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentPage, totalPages, onPageChange, selectedVideo]);
+
   // 새 데이터가 로드되면 선택된 비디오 업데이트
   useEffect(() => {
     if (!isLoading && videos.length > 0 && !arraysEqual(videos, prevVideosRef.current)) {
@@ -399,6 +423,7 @@ export const VideoGrid: React.FC<Props> = ({
           hasNextVideo={videos.findIndex(v => v.id === selectedVideo.id) < videos.length - 1 || currentPage < totalPages}
           onTagsUpdate={(newTags) => handleTagsUpdate(selectedVideo.id, newTags)}
           onTagClick={onTagClick}
+          isDetailMode={true}  // 상세 페이지 모드 표시
         />
       )}
     </>

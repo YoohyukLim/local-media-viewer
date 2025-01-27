@@ -38,6 +38,8 @@ export const Pagination: React.FC<Props> = ({
   totalPages,
   onPageChange,
 }) => {
+  const JUMP_SIZE = 5; // 한 번에 이동할 페이지 수
+  
   // 디버깅을 위한 로그 추가
   console.log('Pagination props:', { currentPage, totalPages });
   
@@ -64,6 +66,17 @@ export const Pagination: React.FC<Props> = ({
     return pageNumbers;
   };
 
+  // 이전/다음 5페이지 이동
+  const handleJumpPrev = () => {
+    const newPage = Math.max(1, currentPage - JUMP_SIZE);
+    onPageChange(newPage);
+  };
+
+  const handleJumpNext = () => {
+    const newPage = Math.min(totalPages, currentPage + JUMP_SIZE);
+    onPageChange(newPage);
+  };
+
   // totalPages가 0이면 페이지네이션을 표시하지 않음
   if (totalPages <= 0) return null;
 
@@ -74,6 +87,12 @@ export const Pagination: React.FC<Props> = ({
         disabled={currentPage === 1}
       >
         {'<<'}
+      </PageButton>
+      <PageButton 
+        onClick={handleJumpPrev}
+        disabled={currentPage === 1}
+      >
+        {'-5'}
       </PageButton>
       <PageButton 
         onClick={() => onPageChange(currentPage - 1)}
@@ -97,6 +116,12 @@ export const Pagination: React.FC<Props> = ({
         disabled={currentPage === totalPages}
       >
         {'>'}
+      </PageButton>
+      <PageButton 
+        onClick={handleJumpNext}
+        disabled={currentPage === totalPages}
+      >
+        {'+5'}
       </PageButton>
       <PageButton 
         onClick={() => onPageChange(totalPages)}
