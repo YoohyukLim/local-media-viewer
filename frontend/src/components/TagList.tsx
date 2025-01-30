@@ -68,10 +68,16 @@ const TagsContainer = styled.div`
   flex-direction: column;
 `;
 
-const SearchInput = styled.input`
+const SearchContainer = styled.div`
+  position: relative;
   width: calc(100% - 1rem);
-  padding: 0.35rem 0.5rem;
   margin: 0.2rem 0;
+`;
+
+const SearchInput = styled.input`
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  padding-right: 2rem;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 0.9rem;
@@ -84,6 +90,45 @@ const SearchInput = styled.input`
   
   &::placeholder {
     color: #999;
+  }
+`;
+
+const ClearButton = styled.button`
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  padding: 0;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  opacity: 0.5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  &:hover {
+    opacity: 0.8;
+  }
+  
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 2px;
+    background: #666;
+    border-radius: 1px;
+  }
+  
+  &::before {
+    transform: rotate(45deg);
+  }
+  
+  &::after {
+    transform: rotate(-45deg);
   }
 `;
 
@@ -165,12 +210,20 @@ export const TagList: React.FC<Props> = ({ tags, onTagClick, onWidthChange }) =>
     <Sidebar width={width}>
       <Title>태그 목록</Title>
       <TagsContainer>
-        <SearchInput
-          type="text"
-          placeholder="태그 검색..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+        <SearchContainer>
+          <SearchInput
+            type="text"
+            placeholder="태그 검색..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          {searchTerm && (
+            <ClearButton
+              onClick={() => setSearchTerm('')}
+              title="검색어 지우기"
+            />
+          )}
+        </SearchContainer>
         {filteredTags.map((tag, index) => (
           <TagItem 
             key={tag.id}
