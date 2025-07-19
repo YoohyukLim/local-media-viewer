@@ -25,7 +25,9 @@ class PlayerMonitor:
         self.platform = platform.system()
         self.sel = selectors.DefaultSelector()
         self.server_socket = None
+        self.server_socket_registered = False
         self.running = True
+        self.cleaned_up = False
         # 시그널 핸들러 등록
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
@@ -82,33 +84,66 @@ class PlayerMonitor:
         
             # 데이터 처리 후 항상 연결 종료
             logger.info('Closing connection')
-            self.sel.unregister(conn)
+            try:
+                self.sel.unregister(conn)
+            except KeyError:
+                # 이미 등록 해제된 경우 무시
+                pass
             conn.close()
         except Exception as e:
             logger.error(f'Error reading from socket: {e}')
-            self.sel.unregister(conn)
+            try:
+                self.sel.unregister(conn)
+            except KeyError:
+                # 이미 등록 해제된 경우 무시
+                pass
             conn.close()
     
     def cleanup(self):
         """소켓 및 셀렉터 정리"""
-        if self.running:  # 중복 cleanup 방지
-            self.running = False
-            if self.server_socket:
+        if self.cleaned_up:  # 중복 cleanup 방지
+            return
+            
+        self.cleaned_up = True
+        self.running = False
+        
+        try:
+            if self.server_socket and self.server_socket_registered:
                 self.sel.unregister(self.server_socket)
+                self.server_socket_registered = False
+                
+            if self.server_socket:
                 self.server_socket.close()
+                self.server_socket = None
+                
             self.sel.close()
             logger.info("Cleaned up server resources")
+        except Exception as e:
+            logger.error(f"Error during cleanup: {e}")
     
     def monitor(self):
         """TCP 서버 실행 및 모니터링"""
         try:
             self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.server_socket.bind((self.host, self.port))
+            
+            try:
+                self.server_socket.bind((self.host, self.port))
+            except OSError as e:
+                if e.winerror == 10013:  # Windows access denied
+                    logger.error(f"Permission denied: Cannot bind to {self.host}:{self.port}")
+                    logger.error("This port may be in use by another application or require administrator privileges")
+                elif e.errno == 98:  # Linux address already in use
+                    logger.error(f"Address already in use: {self.host}:{self.port}")
+                else:
+                    logger.error(f"Failed to bind to {self.host}:{self.port}: {e}")
+                return
+                
             self.server_socket.listen(5)
             self.server_socket.setblocking(False)
             
             self.sel.register(self.server_socket, selectors.EVENT_READ, self.accept)
+            self.server_socket_registered = True
             logger.info(f'Starting monitor on {self.host}:{self.port}')
             
             while self.running:

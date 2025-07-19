@@ -278,6 +278,7 @@ async def play_video(video_id: int, db: Session = Depends(get_db)):
             try:
                 # TCP 소켓으로 파일 경로 전송
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                    logger.info(f"Connecting to player at {settings.PLAYER_HOST}:{settings.PLAYER_PORT}")
                     sock.connect((settings.PLAYER_HOST, settings.PLAYER_PORT))
                     sock.sendall(f"{host_path}\n".encode('utf-8'))
                     logger.info("Sent file path to player")
@@ -297,6 +298,7 @@ async def play_video(video_id: int, db: Session = Depends(get_db)):
             
         return {"status": "success"}
     except Exception as e:
+        logger.error(f"Error playing video: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to play video: {str(e)}"
